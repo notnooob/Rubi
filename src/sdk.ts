@@ -42,6 +42,7 @@ export * from "./services/reddit"
 export {thumbnail, imageInfo, placeholderThumbnail, hasFfmpeg, mergeAudio, videoFrame, mediaDir, sweepMedia, extensionFor, THUMB_PREFIX} from "./util/media"
 export {downloadAttachments, sendAttachments, attachmentsBlocked, describeMedia, dashAudioUrl, dashVideoUrl, mapLimit} from "./util/attachments"
 export type {MediaItem, Downloaded, DownloadOptions} from "./util/attachments"
+export * from "./services/x"
 export {TempFiles, FileGroup} from "./core/files"
 
 export * as fmt from "./util/format"
