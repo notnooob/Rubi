@@ -1,0 +1,49 @@
+/**
+ * Public API for command and event files in data/.
+ *
+ *   import {defineCommand, fmt} from "../../src/sdk"
+ *
+ * Keep command files importing from here (not from src/core/*) so internals can move freely.
+ */
+export {defineCommand} from "./core/command"
+export type {Command, CommandDefinition, CommandResult, CommandScope} from "./core/command"
+export {defineEvent} from "./core/events"
+export type {EventDefinition, EventOf} from "./core/events"
+export type {CommandContext, Sender} from "./core/context"
+export type {ArgDef, ArgType, ParsedArgs} from "./core/args"
+export type {Runtime, Stats} from "./core/runtime"
+export type {BotMessage, LiveMessage, SendOptions, Content} from "./core/messages"
+export {CommandError, UsageError, PermissionError, ScopeError, CooldownError, TimeoutError, describeError, chatErrorType} from "./core/errors"
+export {roleAtLeast, roleRank, isActiveMember, PERMISSION_LABEL, ROLE_ORDER} from "./core/permissions"
+export type {Permission} from "./core/permissions"
+export {CATEGORIES, categoryIcon} from "./core/categories"
+export {CommandRegistry} from "./core/registry"
+
+// utilities
+export {HttpError, isPrivateAddress} from "./core/http"
+export type {Http, HttpOptions, HttpResponse} from "./core/http"
+export type {GroupSettings, ContactSettings, ScopedData} from "./core/data"
+export type {Collection} from "./core/store"
+export {defineJob, newId} from "./core/scheduler"
+export type {Job, JobHandler} from "./core/scheduler"
+export {defineInteraction, REACTIONS, normalizeReaction} from "./core/interactions"
+export type {Interaction, InteractionHandlers, InteractionUpdate, Reaction, ReactionInput} from "./core/interactions"
+export {parseDuration, parseWhen, formatDateTime} from "./util/time"
+export {qrDataUri} from "./util/qr"
+export {makeUi, uiFor, commandsTappable} from "./util/ui"
+export type {Ui} from "./util/ui"
+export {assertCanModerate, moderate} from "./util/moderation"
+export {evaluate, CalcError} from "./util/calc"
+export {geocode, placeLabel, isTimeZone, weatherCode, utcOffset} from "./services/geo"
+export type {Place} from "./services/geo"
+export {findCountry, countryByCode} from "./services/countries"
+export type {Country} from "./services/countries"
+export {thumbnail, imageInfo, placeholderThumbnail, hasFfmpeg, mergeAudio, videoFrame, mediaDir, sweepMedia, extensionFor, THUMB_PREFIX} from "./util/media"
+export {downloadAttachments, sendAttachments, attachmentsBlocked, describeMedia, dashAudioUrl, dashVideoUrl, mapLimit} from "./util/attachments"
+export type {MediaItem, Downloaded, DownloadOptions} from "./util/attachments"
+export {TempFiles, FileGroup} from "./core/files"
+
+export * as fmt from "./util/format"
+export * as chatUtil from "./util/chat"
+export {T, CC} from "@simplex-chat/types"
+export type {CEvt, ChatEvent, ChatResponse, CR} from "@simplex-chat/types"
