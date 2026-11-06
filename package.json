@@ -1,0 +1,50 @@
+{
+  "name": "rubi",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Rubi — the first multi-purpose SimpleX Chat bot: utilities, web lookups, polls, games, reminders and group moderation",
+  "keywords": [
+    "simplex",
+    "simplex-chat",
+    "chat-bot",
+    "bot",
+    "privacy",
+    "e2ee",
+    "multi-purpose"
+  ],
+  "license": "AGPL-3.0-only",
+  "main": "dist/src/index.js",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/src/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test \"test/**/*.test.ts\"",
+    "check": "npm run typecheck && npm test",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "docs:sync": "node scripts/sync-docs.mjs",
+    "avatar": "node scripts/make-avatar.mjs",
+    "setup:native": "node scripts/setup-native.mjs"
+  },
+  "dependencies": {
+    "@simplex-chat/types": "^0.10.3",
+    "qrcode": "^1.5.4",
+    "sharp": "^0.35.5",
+    "simplex-chat": "^7.0.2",
+    "undici": "^8.12.4",
+    "world-countries": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.0",
+    "@types/qrcode": "^1.5.6",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  },
+  "allowScripts": {
+    "simplex-chat@7.0.2": true,
+    "esbuild@0.28.2": true
+  }
+}

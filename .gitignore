@@ -1,0 +1,32 @@
+# Dependencies & build output
+node_modules/
+dist/
+
+# Bot data: the SimpleX database holds Rubi's identity and keys — never commit it
+storage/
+*.db
+*.db-shm
+*.db-wal
+*.lock
+!package-lock.json
+
+# Secrets / local config (the documented template stays in the repo)
+.env
+.env.*
+!.env.example
+
+# Logs & temp files
+*.log
+*.tmp
+.tmp/
+coverage/
+
+# Local tool settings
+.claude/settings.local.json
+.vscode/
+.idea/
+
+# OS clutter
+.DS_Store
+Thumbs.db
+desktop.ini
