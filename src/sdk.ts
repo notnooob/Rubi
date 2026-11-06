@@ -38,6 +38,7 @@ export {geocode, placeLabel, isTimeZone, weatherCode, utcOffset} from "./service
 export type {Place} from "./services/geo"
 export {findCountry, countryByCode} from "./services/countries"
 export type {Country} from "./services/countries"
+export * from "./services/reddit"
 export {thumbnail, imageInfo, placeholderThumbnail, hasFfmpeg, mergeAudio, videoFrame, mediaDir, sweepMedia, extensionFor, THUMB_PREFIX} from "./util/media"
 export {downloadAttachments, sendAttachments, attachmentsBlocked, describeMedia, dashAudioUrl, dashVideoUrl, mapLimit} from "./util/attachments"
 export type {MediaItem, Downloaded, DownloadOptions} from "./util/attachments"
