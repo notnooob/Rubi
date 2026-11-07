@@ -37,6 +37,16 @@ export function parseXLink(input: string): XLink | undefined {
   return {user: m[1] && m[1].toLowerCase() !== "i" ? m[1] : undefined, id: m[2]!}
 }
 
+/** First X/Twitter status URL in a message, ignoring surrounding prose and punctuation. */
+export function findXLink(text: string): XLink | undefined {
+  const urls = text.match(/\b(?:https?:\/\/)?(?:[\w-]+\.)*(?:x|twitter|fxtwitter|vxtwitter|fixupx|fixvx|twittpr|nitter)\.(?:com|net)\/[^\s<>"']*/gi) ?? []
+  for (const url of urls) {
+    const link = parseXLink(url.replace(/[)\],.!?;:]+$/g, ""))
+    if (link) return link
+  }
+  return undefined
+}
+
 // ── API ────────────────────────────────────────────────────────────────────
 
 export interface XAuthor {

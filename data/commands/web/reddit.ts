@@ -5,6 +5,7 @@ import {
   downloadAttachments,
   fetchComment,
   fetchPost,
+  findRedditLink,
   fmt,
   MEDIA_HEADERS,
   parseRedditLink,
@@ -33,18 +34,26 @@ export default defineCommand({
   description: "Show a Reddit post: /reddit <link>",
   details:
     "Shows the post's title, text, score and upvote ratio, and attaches its images, GIFs, videos and files. " +
+    "Reply to a message containing a Reddit link with just /reddit or /r to show that post. " +
+    "Append - to the link, or reply with /reddit -, to report its media without downloading or attaching it. " +
     "Works with post links, share links (reddit.com/r/…/s/…), redd.it links and post ids. " +
     "Posts come from the Arctic Shift archive, so brand-new posts can take a few minutes to appear, and scores " +
     "are refreshed about 36 hours after posting. Media of NSFW posts is only sent in DMs.",
   category: "Web",
-  args: [{name: "link", type: "text", description: "Post link, share link or post id", required: true}],
+  args: [{name: "link", type: "text", description: "Post link, share link or post id (or reply to a link)", required: false}],
   examples: ["reddit https://www.reddit.com/r/running/comments/17snc7d/", "r https://www.reddit.com/r/running/s/3TzXiyxaMD"],
   live: "🔎 Finding the post",
   cooldown: 10,
   timeout: 300,
   async run(ctx) {
-    const link = parseRedditLink(ctx.args.link.split(/\s+/)[0]!)
-    if (!link) return ctx.usageError("That isn't a Reddit post link.")
+    const quoted = ctx.item.chatItem.quotedItem?.content.text
+    const raw = ctx.args.link?.trim() ?? ""
+    const noMedia = /-$/.test(raw)
+    const input = noMedia ? raw.replace(/-$/, "").trim() : raw
+    const link = input ? parseRedditLink(input.split(/\s+/)[0]!) : quoted ? findRedditLink(quoted) : undefined
+    if (!link) {
+      return ctx.usageError(input ? "That isn't a Reddit post link." : "Reply to a message containing a Reddit post link, or include the link after /reddit.")
+    }
 
     let postId: string
     let commentId: string | undefined
@@ -64,12 +73,12 @@ export default defineCommand({
 
     const media = postMedia(post)
     const blocked = media.length ? (post.over_18 && ctx.isGroup && !ctx.isBusiness ? "🔞 Media from NSFW posts is only sent in DMs." : attachmentsBlocked(ctx)) : undefined
-    const wanted = blocked ? [] : media.slice(0, MAX_ATTACHMENTS)
+    const wanted = blocked || noMedia ? [] : media.slice(0, MAX_ATTACHMENTS)
     const body = renderPost(post, comment, media)
     // the post, then (at the bottom) its stats, what's attached, notes and the link
     const compose = (...status: (string | false | undefined)[]) =>
       fmt.lines(body, "", postStats(post), ...status, "", `🌐 ${permalink(post, commentId)}`)
-    if (!wanted.length) return compose(blocked)
+    if (!wanted.length) return compose(noMedia && media.length ? `📎 ${describeMedia(media.map((m) => m.kind))} available · not downloaded` : blocked)
 
     // show the post right away while the media downloads
     const what = describeMedia(wanted.map((m) => m.kind))

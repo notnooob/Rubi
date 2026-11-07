@@ -239,11 +239,15 @@ export async function settle(dispatcher: Dispatcher): Promise<void> {
 
 let itemSeq = 1
 
-export function dm(text: string, opts: {contactId?: number; name?: string; live?: boolean} = {}): T.AChatItem {
+export function dm(text: string, opts: {contactId?: number; name?: string; live?: boolean; quotedText?: string} = {}): T.AChatItem {
   const contactId = opts.contactId ?? 7
+  const item = msgItem(text, {type: "directRcv"}, opts.live)
+  if (opts.quotedText !== undefined) {
+    ;(item as any).quotedItem = {itemId: 500, chatDir: {type: "directRcv"}, sentAt: "", content: {type: "text", text: opts.quotedText}}
+  }
   return {
     chatInfo: {type: "direct", contact: {contactId, profile: {displayName: opts.name ?? "alice"}}},
-    chatItem: msgItem(text, {type: "directRcv"}, opts.live),
+    chatItem: item,
   } as any
 }
 
@@ -257,7 +261,7 @@ export interface GroupOpts {
   mention?: boolean
   /** The message is a reply to one of Rubi's messages (chat core flags it as userMention too). */
   replyToBot?: boolean
-  quote?: {itemId: number; chatDir?: T.CIDirection}
+  quote?: {itemId: number; chatDir?: T.CIDirection; text?: string}
   /** The group has a bot command menu (/groupmenu) → commands are tappable there. */
   menu?: boolean
 }
@@ -280,7 +284,7 @@ export function groupMsg(text: string, opts: GroupOpts = {}): T.AChatItem {
   const item = msgItem(text, {type: "groupRcv", groupMember: m})
   ;(item.meta as any).userMention = !!opts.mention || !!opts.replyToBot
   if (opts.mention) (item as any).mentions = {Rubi: {memberId: "mid-1", memberRef: {groupMemberId: 1, displayName: "Rubi", memberRole: "admin"}}}
-  if (opts.quote) (item as any).quotedItem = {itemId: opts.quote.itemId, chatDir: opts.quote.chatDir ?? {type: "groupRcv"}, sentAt: "", content: {type: "text", text: ""}}
+  if (opts.quote) (item as any).quotedItem = {itemId: opts.quote.itemId, chatDir: opts.quote.chatDir ?? {type: "groupRcv"}, sentAt: "", content: {type: "text", text: opts.quote.text ?? ""}}
   return {
     chatInfo: {
       type: "group",

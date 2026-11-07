@@ -3,7 +3,7 @@ import {existsSync, writeFileSync} from "node:fs"
 import {describe, it} from "node:test"
 import sharp from "sharp"
 import {HttpError} from "../src/core/http"
-import {noteText, parseXLink, renderXPost, xMedia, xStats, type XPost} from "../src/services/x"
+import {findXLink, noteText, parseXLink, renderXPost, xMedia, xStats, type XPost} from "../src/services/x"
 import {dm, groupMsg, makeHarness, type Harness} from "./helpers/fake"
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -21,6 +21,11 @@ describe("X links", () => {
     assert.equal(parseXLink("https://x.com/jack"), undefined)
     assert.equal(parseXLink("https://example.com/jack/status/20"), undefined)
     assert.equal(parseXLink("hello"), undefined)
+  })
+  it("finds a status URL inside a replied-to message", () => {
+    assert.deepEqual(findXLink("Have you seen https://x.com/jack/status/20?s=20?"), {user: "jack", id: "20"})
+    assert.equal(findXLink("https://x.com/jack"), undefined)
+    assert.equal(findXLink("https://example.com/jack/status/20"), undefined)
   })
 })
 
@@ -173,6 +178,39 @@ describe("/x", () => {
     for (const id of images.map((i) => i.itemId)) h.rt.tempFiles.uploaded(id)
     await sleep(60)
     assert.ok(images.every((i) => !existsSync(i.file!)), "deleted once uploaded")
+  })
+
+  it("uses the X link in the message a bare command replies to", async () => {
+    const h = makeHarness()
+    const urls = fakeX(h, {"2116719195958210983": photos()})
+    await h.receive(dm("/x", {quotedText: "Look: https://x.com/777pb_/status/2116719195958210983?s=20"}))
+    await untilFinal(h)
+    assert.equal(urls[0], "https://api.fxtwitter.com/777pb_/status/2116719195958210983")
+    assert.match(h.chat.sent.find((s) => s.kind === "update" && !s.live)!.text!, /^𝕏 \*Sev\*/)
+  })
+
+  it("explains when a bare command isn't replying to an X link", async () => {
+    const h = makeHarness()
+    fakeX(h, {"2116719195958210983": photos()})
+    await h.receive(dm("/x", {quotedText: "There is no link here."}))
+    assert.match(h.chat.last()!.text!, /Reply to a message containing an X post link/)
+    assert.match(h.chat.last()!.text!, /\[link\.\.\.\]/)
+  })
+
+  it("reports media without downloading it when the command ends in -", async () => {
+    const h = makeHarness()
+    fakeX(h, {"2116719195958210983": photos()})
+    const link = "https://x.com/777pb_/status/2116719195958210983"
+    await h.receive(dm(`/x ${link}/-`))
+    await untilFinal(h)
+    const final = h.chat.sent.find((s) => s.kind === "update" && !s.live)!
+    assert.match(final.text!, /📎 2 images available · not downloaded/)
+    assert.equal(h.chat.sent.filter((s) => s.file).length, 0)
+
+    await h.receive(groupMsg("/x -", {quote: {itemId: 501, text: `Look: ${link}`}}))
+    await untilFinal(h)
+    assert.match(h.chat.last()!.text!, /📎 2 images available · not downloaded/)
+    assert.equal(h.chat.sent.filter((s) => s.file).length, 0)
   })
 
   it("attaches the quoted post's video", async () => {

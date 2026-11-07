@@ -3,7 +3,7 @@ import {existsSync, writeFileSync} from "node:fs"
 import {describe, it} from "node:test"
 import sharp from "sharp"
 import {HttpError} from "../src/core/http"
-import {inlineToSimplex, parseRedditLink, postHeader, postMedia, postStats, redditToSimplex, type RedditPost} from "../src/services/reddit"
+import {findRedditLink, inlineToSimplex, parseRedditLink, postHeader, postMedia, postStats, redditToSimplex, type RedditPost} from "../src/services/reddit"
 import {dm, groupMsg, makeHarness, type Harness} from "./helpers/fake"
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -29,6 +29,14 @@ describe("reddit links", () => {
     assert.equal(parseRedditLink("https://example.com/r/x/comments/17snc7e"), undefined)
     assert.equal(parseRedditLink("https://www.reddit.com/r/pics/"), undefined)
     assert.equal(parseRedditLink("not a link"), undefined)
+  })
+  it("finds a post URL inside a replied-to message", () => {
+    assert.deepEqual(findRedditLink("Look at this: https://www.reddit.com/r/running/comments/17snc7e/achievements/."), {
+      postId: "17snc7e",
+      commentId: undefined,
+    })
+    assert.deepEqual(findRedditLink("not a post: https://www.reddit.com/r/pics/"), undefined)
+    assert.equal(findRedditLink("https://example.com/r/pics/comments/abc123"), undefined)
   })
 })
 
@@ -221,6 +229,45 @@ describe("/reddit", () => {
     await sleep(60)
     assert.ok(images.every((i) => !existsSync(i.file!)), "deleted after the last upload")
     assert.equal(h.rt.tempFiles.pending, 0)
+  })
+
+  it("uses the Reddit link in the message a bare command replies to", async () => {
+    const h = makeHarness()
+    fakeReddit(h, {posts: [post()]})
+    const link = "https://www.reddit.com/r/pics/comments/abc123/a_b/"
+    await h.receive(dm("/reddit", {quotedText: `What do you think of this? ${link}`}))
+    await untilFinal(h)
+    assert.match(h.chat.sent.find((s) => s.kind === "update" && !s.live)!.text!, /# A & B/)
+
+    await h.receive(groupMsg("/r", {quote: {itemId: 501, text: `A post: ${link}`}}))
+    await untilFinal(h)
+    assert.equal(h.chat.sent.filter((s) => s.kind === "update" && !s.live && /# A & B/.test(s.text!)).length, 2)
+  })
+
+  it("explains when a bare command isn't replying to a Reddit link", async () => {
+    const h = makeHarness()
+    fakeReddit(h, {posts: [post()]})
+    await h.receive(dm("/r", {quotedText: "There is no link here."}))
+    assert.match(h.chat.last()!.text!, /Reply to a message containing a Reddit post link/)
+    assert.match(h.chat.last()!.text!, /\[link\.\.\.\]/)
+  })
+
+  it("reports media without downloading it when the command ends in -", async () => {
+    const h = makeHarness()
+    const downloads = fakeReddit(h, {posts: [post(gallery())]})
+    const link = "https://www.reddit.com/r/pics/comments/abc123/a_b"
+    await h.receive(dm(`/reddit ${link}-`))
+    await untilFinal(h)
+    const final = h.chat.sent.find((s) => s.kind === "update" && !s.live)!
+    assert.match(final.text!, /📎 2 images available · not downloaded/)
+    assert.equal(downloads.length, 0)
+    assert.equal(h.chat.sent.filter((s) => s.file).length, 0)
+
+    await h.receive(groupMsg("/r -", {quote: {itemId: 501, text: link}}))
+    await untilFinal(h)
+    assert.match(h.chat.last()!.text!, /📎 2 images available · not downloaded/)
+    assert.equal(downloads.length, 0)
+    assert.equal(h.chat.sent.filter((s) => s.file).length, 0)
   })
 
   it("resolves share links with Arctic Shift first", async () => {

@@ -67,6 +67,16 @@ export function parseRedditLink(input: string): RedditLink | undefined {
   return undefined
 }
 
+/** First Reddit post/share URL in a message, ignoring surrounding prose and punctuation. */
+export function findRedditLink(text: string): RedditLink | undefined {
+  const urls = text.match(/\b(?:https?:\/\/)?(?:[\w-]+\.)*(?:reddit\.com|redd\.it)\/[^\s<>"']*/gi) ?? []
+  for (const url of urls) {
+    const link = parseRedditLink(url.replace(/[)\],.!?;:]+$/g, ""))
+    if (link) return link
+  }
+  return undefined
+}
+
 /**
  * Unshortens a share link. Asks Arctic Shift's share-link index first; if it doesn't know the link (yet),
  * follows Reddit's redirects with browser-like headers (only the Location headers are read).
