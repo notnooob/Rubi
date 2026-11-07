@@ -18,6 +18,7 @@ import {Dispatcher} from "./dispatcher"
 import {describeChatError, describeError} from "./errors"
 import {EventBus} from "./events"
 import {TempFiles} from "./files"
+import {botMenuBudget, groupMenuBudget} from "./profile"
 import {sweepMedia} from "../util/media"
 import {logger as rootLogger, type Logger} from "./logger"
 import {Messenger} from "./messages"
@@ -116,7 +117,7 @@ export class Rubi implements Runtime {
         updateProfile: true,
         addressSettings: {autoAccept: true, welcomeMessage: cfg.welcomeMessage, businessAddress: cfg.address.business},
         allowFiles: cfg.allowFiles,
-        commands: this.commands.menu(),
+        commands: this.botMenu(this.store.collection<string>("profile").get("contactLink")),
         useBotProfile: true,
         logContacts: cfg.log.contacts,
         logNetwork: cfg.log.network,
@@ -127,6 +128,8 @@ export class Rubi implements Runtime {
     this._chat = chat
     this._user = user
     this._address = address
+    // remember the address link: next start, the menu budget can use its real length instead of a reserve
+    if (this.addressLink) this.store.collection<string>("profile").set("contactLink", this.addressLink)
     this._messenger = new Messenger(chat, cfg.live, this.log.child("messages"))
     this._data = new ChatData(chat)
     this.events.setReady(this)
@@ -184,11 +187,11 @@ export class Rubi implements Runtime {
    * current commands. Only updates groups whose menu actually changed.
    */
   async syncGroupMenus(): Promise<void> {
-    const menu = this.commands.menu({forGroup: true})
     const groups = await this.chat.apiListGroups(this.user.userId)
     for (const g of groups) {
       const current = g.groupProfile.groupPreferences?.commands
       if (!current?.length || g.membership.memberRole !== "owner") continue
+      const menu = this.commands.menu({forGroup: true, maxBytes: groupMenuBudget(g.groupProfile)})
       if (JSON.stringify(current) === JSON.stringify(menu)) continue
       try {
         await this.chat.apiUpdateGroupProfile(g.groupId, {...g.groupProfile, groupPreferences: {...g.groupProfile.groupPreferences, commands: menu}})
@@ -200,8 +203,20 @@ export class Rubi implements Runtime {
   }
 
   /** Push the current command list to the bot profile (shown in the app's "/" menu). */
+  /**
+   * The bot's command menu, shrunk if needed so the whole profile (avatar, address link, menu) stays under
+   * SimpleX's profile size limit. Logs a warning when it had to shrink.
+   */
+  private botMenu(contactLink: string | undefined): T.ChatBotCommand[] {
+    const budget = botMenuBudget(this.config.profile, {allowFiles: this.config.allowFiles, contactLink})
+    const {menu, level, dropped} = this.commands.menuWithin({maxBytes: budget})
+    if (dropped) this.log.warn(`the profile is too full for the whole command menu: ${dropped} command(s) left out. Use a smaller RUBI_AVATAR.`)
+    else if (level !== "full") this.log.info(`command menu shortened (${level}) to fit the profile size limit`)
+    return menu
+  }
+
   async updateMenu(): Promise<void> {
-    const prefs = {...(this.user.profile.preferences ?? {}), commands: this.commands.menu()}
+    const prefs = {...(this.user.profile.preferences ?? {}), commands: this.botMenu(this.addressLink)}
     const profile: T.Profile = {...this.config.profile, contactLink: this.addressLink, peerType: this.user.profile.peerType, preferences: prefs}
     const summary = await this.chat.apiUpdateProfile(this.user.userId, profile)
     if (summary) this.log.info(`command menu updated for ${summary.updateSuccesses} contact(s)`)

@@ -1,4 +1,4 @@
-import {defineCommand, describeError, fmt, T} from "../../../src/sdk"
+import {defineCommand, describeError, fmt, T, groupMenuBudget} from "../../../src/sdk"
 
 /**
  * SimpleX apps make /commands in messages tappable — and show the "/" command menu — in a group only when the
@@ -22,7 +22,7 @@ export default defineCommand({
     const g = ctx.group!
     const on = ctx.args.state ?? true
     const prefs = {...(g.groupProfile.groupPreferences ?? {})}
-    if (on) prefs.commands = ctx.rt.commands.menu({forGroup: true})
+    if (on) prefs.commands = ctx.rt.commands.menu({forGroup: true, maxBytes: groupMenuBudget(g.groupProfile)})
     else delete prefs.commands
     try {
       await ctx.chat.apiUpdateGroupProfile(g.groupId, {...g.groupProfile, groupPreferences: prefs})

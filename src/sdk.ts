@@ -44,6 +44,7 @@ export {downloadAttachments, sendAttachments, attachmentsBlocked, describeMedia,
 export type {MediaItem, Downloaded, DownloadOptions} from "./util/attachments"
 export * from "./services/x"
 export {TempFiles, FileGroup} from "./core/files"
+export {botMenuBudget, groupMenuBudget, MAX_INFO_BYTES} from "./core/profile"
 
 export * as fmt from "./util/format"
 export * as chatUtil from "./util/chat"

@@ -10,7 +10,8 @@ import {join, dirname} from "node:path"
 import {fileURLToPath} from "node:url"
 import sharp from "sharp"
 
-const MAX_DATA_URI = 12_500
+// SimpleX allows 12.5K, but the avatar shares the profile message (max 14 694 bytes) with the command menu
+const MAX_DATA_URI = 9_000
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
 const svg = await readFile(join(root, "assets", "avatar.svg"))
 
