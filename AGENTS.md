@@ -2,6 +2,9 @@
 
 Guide for AI agents (and humans) working on this repo. Read this first.
 
+**Agents MUST update this file whenever they make any changes to the project.** Keep the architecture, behavior,
+commands, utilities, tests and workflow documented here accurate before finishing.
+
 ## What this is
 
 **Rubi is the first multi-purpose SimpleX Chat bot**: utilities, web lookups, Reddit and X posts, polls, reminders, games and
@@ -11,7 +14,8 @@ It's going to be open-sourced, so keep code, comments and docs clean enough for 
 (Don't describe Rubi as "a bot with slash commands" or "Discord-style"; it's a *multi-purpose SimpleX Chat bot*.)
 
 - One file per command in `data/commands/<category>/`, loaded automatically at boot. `/help` builds itself from them.
-- Typed, validated arguments (`integer`, `boolean`, `member`, `text`, choices, …).
+- Typed, validated arguments (`integer`, `boolean`, `member`, `text`, choices, …). Every numeric input accepts commas
+  within the digits (`1,000`, `2d1,000`, `1,234.5`), including custom parsers; don't add numeric parsers that reject them.
 - **Live commands:** the bot posts a live placeholder right away ("⏳ Working on /x 3s"),
   then edits that same message into the result.
 - Works in **DMs and groups**, including business chats. Group admins are identified by their SimpleX member role, and
@@ -58,9 +62,12 @@ replies.** Use the chat-aware **`ctx.ui`**:
 Live messages: **never end a live text with "…" or "..."**. The apps already animate "..." after every live message
 (a test enforces this for `live:` texts).
 
-The `/` menu lives in the bot profile (and in the group profile for `/groupmenu`), together with the avatar (~11 KB).
-Everything must fit in one SimpleX message (~15 KB), so menu labels are shortened automatically (`menuLabel`). Keep
-`description` short, and put examples after a colon ("Roll dice: /roll 2d6"); the menu drops that part.
+The `/` menu lives in the bot profile (and in the group profile for `/groupmenu`), together with the avatar (~8.5 KB)
+and the address link. SimpleX rejects a profile whose JSON is over **14 694 bytes** ("Profile is too large",
+`maxEncodedInfoLength`), so the menu is built to fit what's left (`src/core/profile.ts` → `menuWithin({maxBytes})`):
+it drops parameter hints, then shortens labels, then uses bare keywords, and only then leaves commands out (with a
+warning in the log). A test fails if the default avatar no longer leaves room for the full menu. Keep `description`
+short, and put examples after a colon ("Roll dice: /roll 2d6"); the menu drops that part.
 
 ## API reference → `docs/`
 
@@ -92,7 +99,7 @@ LICENSE                ← AGPL-3.0 (same as simplex-chat)
 package.json           ← scripts: dev, build, start, test, typecheck, check, docs:sync, avatar, setup:native
 tsconfig.json          ← typecheck config (src + data + test); tsconfig.build.json = build (src + data)
 scripts/sync-docs.mjs  ← mirrors upstream docs into docs/
-scripts/make-avatar.mjs  ← assets/avatar.svg → avatar.png (512px), avatar-round.png (README) + avatar.jpg (profile pic, < 12.5K data URI)
+scripts/make-avatar.mjs  ← assets/avatar.svg → avatar.png (512px), avatar-round.png (README) + avatar.jpg (profile pic, ≤ 9K data URI)
 scripts/setup-native.mjs ← installs/repairs the simplex-chat native lib + rebuilds the addon
 assets/                ← avatar.svg (source), avatar.png, avatar-round.png (README), avatar.jpg (default RUBI_AVATAR)
 docs/                  ← GENERATED SimpleX API docs (see above)
@@ -134,6 +141,7 @@ src/
     prompts.ts         ← Prompts: ctx.awaitReply / ctx.confirm waiting for a user's next message
     pages.ts           ← Pages: paginated lists with ◀ ▶ buttons
     lock.ts            ← one-instance-per-database lock
+    profile.ts         ← profile size budget: how many bytes the command menu may use next to the avatar
     files.ts           ← TempFiles: attachment files deleted once SimpleX has uploaded them (sndFileCompleteXFTP)
   services/
     geo.ts             ← geocoding, time zones, weather codes (Open-Meteo)
@@ -228,7 +236,9 @@ Everything below is exported from `src/sdk.ts` and/or available on `ctx` / `rt`.
   them with `live: true` (the placeholder would sit there while waiting).
 - **Pagination:** `await ctx.paginate({title, items, perPage})` shows ◀ ▶ `/page` buttons. Pages are in memory for 30 min and
   are bound to their chat.
-- **Attachments from the web:** describe media as `MediaItem`s (`{kind, url, alts?, previewUrl?, duration?, caption?}`), then
+- **Attachments from the web:** `/reddit <url>-`, `/x <url>-`, and `/reddit -` / `/r -` / `/x -` in reply to a link
+  list the available media but deliberately make no media downloads or sends (see "Library quirks"). Otherwise,
+  describe media as `MediaItem`s (`{kind, url, alts?, previewUrl?, duration?, caption?}`), then
   `const dl = await downloadAttachments(ctx, items, {label, headers, onProgress})` downloads them (3 at a time, fallbacks
   in `alts` for 404s / too-big files, GIFs over 10 MB swapped for their MP4, DASH audio merged by ffmpeg) and builds
   `image`/`video`/`file` messages with previews (`thumbnail()`, sharp). Reply with the text first, then
@@ -300,8 +310,8 @@ Don't handle `newChatItems` for commands, because the dispatcher already does th
 - npm 11 only runs approved install scripts. `simplex-chat` and `esbuild` are approved in `package.json` → `allowScripts`,
   pinned to exact versions. **When you bump `simplex-chat`, re-approve it** (`npm install-scripts approve simplex-chat`),
   or the addon won't be built.
-- Profile images must stay under ~12.5K chars as a data URI. `src/config.ts` warns when they don't. Regenerate with
-  `npm run avatar`.
+- Profile images must stay under ~12.5K chars as a data URI. `src/config.ts` warns when they don't. But the whole
+  profile (avatar + menu + address link) must also stay under 14 694 bytes, so `npm run avatar` aims for ≤ 9K.
 - Profile image data URIs **must** start with `data:image/jpg;base64,` or `data:image/png;base64,`. The apps strip
   only those exact prefixes, so the standard `image/jpeg` shows up as a **blank avatar**. A test in
   `test/core.test.ts` guards this.
@@ -316,6 +326,12 @@ Don't handle `newChatItems` for commands, because the dispatcher already does th
 - `meta.userMention` is also true for **replies** to the bot's messages (core: `userMention = userReply || mentioned`).
   To detect a real @mention, check `chatItem.mentions` for the bot's `membership.memberId` (see `mentionsBot` in the
   dispatcher). Otherwise the bot answers every reply to its own messages.
+- **Replies as Reddit/X input:** `chatItem.quotedItem.content.text` contains the replied-to message, in DMs and groups.
+  `/reddit` and `/r` use `findRedditLink` on it; `/x` uses `findXLink` (the first supported post URL, ignoring prose and
+  trailing punctuation). No history API is needed. Explicit URLs still go through `parseRedditLink` / `parseXLink`.
+- **Reddit/X without attachments:** appending `-` to the URL (`/r <url>-`) or using it alone after the command
+  (`/x <url> -`, `/reddit -` as a reply) skips all media downloads and attachment sends. The response reports the
+  available media with `describeMedia(...)` and "available · not downloaded"; fetching the post itself still happens.
 - Sending files: in DMs the bot's own "files" preference doesn't matter (core only checks voice). In groups the group's
   `files` preference must allow the bot's role (`groupInfo.fullGroupPreferences.files`), or sending fails.
 - Reddit: share links are resolved with Arctic Shift's `/api/short_links` first (it only knows links it has seen in

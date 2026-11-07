@@ -23,10 +23,13 @@ lookups can go through Tor.
   you're allowed to run in the current chat.
 - **Live replies:** slow commands answer straight away with a live message that turns into the result
   (and jokes reveal their punchline live).
-- **Reddit posts in chat:** send `/reddit <link>` (or `/r`) to get the post's text, score and upvote ratio, with its
-  images, GIFs and videos attached. Share links (`reddit.com/r/…/s/…`) work too.
+- **Reddit posts in chat:** send `/reddit <link>` (or `/r`), or reply to a message containing a Reddit link with just
+  `/reddit` or `/r`, to get the post's text, score and upvote ratio, with its images, GIFs and videos attached.
+  Share links (`reddit.com/r/…/s/…`) work too. Append `-` to the URL, or use `/reddit -` / `/r -` as a reply,
+  to report the available attachments without downloading or sending them.
 - **X (Twitter) posts in chat:** `/x <link>` shows the post with its replies/reposts/likes/views, quoted post,
-  the post it replies to, polls and community notes, and attaches its photos and videos.
+  the post it replies to, polls and community notes, and attaches its photos and videos. You can also reply to a
+  message containing an X link with just `/x`; `/x <url>-` or a `/x -` reply reports media without sending it.
 - **Attachments are temporary:** downloaded media is deleted a minute after SimpleX finishes uploading it.
 - **Polls and trivia** that count emoji reactions. Rubi adds the reactions itself, so people can just tap them.
 - **Group moderation** based on SimpleX member roles: kick, roles, block, warnings with an automatic removal limit,
@@ -77,8 +80,8 @@ Supported platforms: Linux, macOS and Windows on x86_64 or arm64.
 ### 2. Install
 
 ```sh
-git clone <this repo> rubi
-cd rubi
+git clone https://github.com/notnooob/Rubi.git
+cd Rubi
 npm install
 ```
 
