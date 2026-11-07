@@ -30,10 +30,10 @@ It's going to be open-sourced, so keep code, comments and docs clean enough for 
 
 Commands (one file each in `data/commands/<category>/`; the folder is the category):
 - **General:** `/help` `/whoami` `/ping` `/about` `/invite`
-- **Utility:** `/remind` `/reminders` `/poll` `/calc` `/roll` `/choose` `/time` `/qr` `/uuid` `/password` `/hash`
+- **Utility:** `/remind` `/reminders` `/poll` `/calc` `/convert` `/roll` `/choose` `/time` `/qr` `/uuid` `/password` `/hash`
   `/base64` `/timestamp` (+ hidden helpers `/unremind`, `/endpoll`)
-- **Web:** `/reddit` (alias `/r`) `/x` (aliases `/twitter`, `/tweet`) `/weather` `/wiki` `/define` `/currency` `/crypto` `/status` `/dns` `/github` `/npm` `/country` `/holidays` `/hn`
-- **Fun:** `/8ball` `/coinflip` `/rps` `/trivia` `/joke` `/fact` `/quote` `/xkcd`
+- **Web:** `/reddit` (alias `/r`) `/x` (aliases `/twitter`, `/tweet`) `/deals` `/weather` `/wiki` `/define` `/currency` `/crypto` `/status` `/dns` `/github` `/npm` `/country` `/holidays` `/hn`
+- **Fun:** `/8ball` `/coinflip` `/rps` `/trivia` (including `tournament`) `/wyr` `/joke` `/fact` `/quote` `/xkcd`
 - **Groups:** `/groupinfo` `/members` `/rules` `/welcome` `/link` `/antispam` `/groupmenu`
 - **Moderation:** `/kick` `/role` `/block` `/unblock` `/warn` `/warnings` `/unwarn` `/delete`
 - **Admin** (bot admins): `/reload` `/stats` `/groups` `/leave` `/broadcast` `/join`
@@ -146,6 +146,7 @@ src/
   services/
     geo.ts             ← geocoding, time zones, weather codes (Open-Meteo)
     countries.ts       ← offline country data + findCountry (world-countries, ODbL; REST Countries now needs a key)
+    cheapshark.ts      ← /deals: CheapShark game search, every current store deal, historical low and store names
     reddit.ts          ← /reddit: link parsing, share-link unshortening, Arctic Shift API, Reddit→SimpleX markdown, post media
     x.ts               ← /x: link parsing, FxTwitter API, post/quote/reply/poll/community-note formatting, post media
   util/
@@ -154,6 +155,7 @@ src/
     chat.ts            ← chatRefOf, chatName, itemText … (no native import)
     time.ts            ← parseDuration, parseWhen ("10m", "18:30", "tomorrow 9am"), formatDateTime
     calc.ts            ← safe expression evaluator (no eval)
+    units.ts           ← offline /convert units, aliases and affine temperature conversions
     qr.ts              ← QR code → inline image data URI
     moderation.ts      ← assertCanModerate + moderate() (role checks, friendly chat-core errors)
     media.ts           ← thumbnails (sharp), ffmpeg audio merge / frames, download folders (storage/media)
@@ -165,6 +167,9 @@ test/
   features.test.ts     ← utilities, polls, confirms, reminders, moderation, trivia, http, lock
   reddit.test.ts       ← /reddit: links, markdown conversion, media extraction, live reply + attachments, temp files
   x.test.ts            ← /x: links, formatting (quotes, replies, polls, notes), media, live reply + attachments
+  convert.test.ts      ← /convert: offline unit aliases, conversions, parsing and command replies
+  deals.test.ts        ← /deals: CheapShark data, best deals, live image+caption and text fallbacks
+  tournament.test.ts   ← /wyr voting and multi-round /trivia tournament scores and jobs
 storage/               ← SQLite DB files, rubi-state.json, rubi.lock, media/ downloads (gitignored)
 ```
 
@@ -247,7 +252,19 @@ Everything below is exported from `src/sdk.ts` and/or available on `ctx` / `rt`.
   (`sndFileCompleteXFTP`), right away on errors, after 30 min at the latest, and `storage/media` is emptied on start.
   Lower level: `ctx.http.download(url, path, {maxBytes, accept})`. See `data/commands/web/x.ts`.
 - **Images:** `await ctx.replyImage(dataUri, caption)`. The data URI must be ≤ ~12.5K chars and start with `data:image/png;base64,`
-  or `data:image/jpg;base64,`. `qrDataUri(text)` makes QR codes that fit.
+  or `data:image/jpg;base64,`. `qrDataUri(text)` makes QR codes that fit. For a live command, `replyImage` deletes the
+  text placeholder and sends one image message containing the caption (SimpleX cannot turn live text into an image).
+- **Offline units:** `/convert <amount> <from> [to] <to>` uses `convertUnits`/`findUnit` in `src/util/units.ts`.
+  Categories: length, mass, temperature (affine), area, volume, speed, time, data, energy, power, pressure and angle.
+  `/convert units` is the compact reference; `/currency` keeps money conversion and has the `fx` alias (not `convert`).
+- **Tournament and WYR:** `/trivia tournament [2–10] [difficulty]` fetches all questions once, persists scores/names in
+  interaction state, and schedules `trivia-reveal` then `tournament-next` (5s between rounds). `/wyr [A | B]` uses a
+  built-in prompt if no options are given; votes can change via reactions or buttons.
+- **CheapShark deals:** `/deals <title>` calls `/games` search + `/games?id` + `/stores`, then shows every current
+  store's USD price, retail price, discount and CheapShark redirect on the following line, plus historical low and tied
+  best deals. The game
+  thumbnail is downloaded and reduced with `thumbnail()`, and sent in the same image message as the complete caption
+  (text fallback if unavailable). CheapShark requires its redirect URLs, not direct store links.
 - **Time:** `parseWhen("tomorrow 9:00 call mom", now, tz)` gives `{at, rest}`; also `parseDuration("1h30m")`,
   `formatDateTime(at, tz)` and `fmt.relative(at)`.
 - **Moderation:** `assertCanModerate(ctx, target, "kick")` checks not self, not the bot, and that both the invoker's and the

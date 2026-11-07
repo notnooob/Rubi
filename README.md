@@ -19,7 +19,7 @@ lookups can go through Tor.
 
 ## Features
 
-- **61 commands**, each in its own file, in 7 categories. `/help` builds itself from them and only shows what
+- **65 commands**, each in its own file, in 7 categories. `/help` builds itself from them and only shows what
   you're allowed to run in the current chat.
 - **Live replies:** slow commands answer straight away with a live message that turns into the result
   (and jokes reveal their punchline live).
@@ -32,6 +32,10 @@ lookups can go through Tor.
   message containing an X link with just `/x`; `/x <url>-` or a `/x -` reply reports media without sending it.
 - **Attachments are temporary:** downloaded media is deleted a minute after SimpleX finishes uploading it.
 - **Polls and trivia** that count emoji reactions. Rubi adds the reactions itself, so people can just tap them.
+  `/trivia tournament [2–10]` keeps a scoreboard over multiple rounds, and `/wyr` starts Would You Rather votes.
+- **Unit conversion and game deals:** `/convert` handles common units offline, including temperatures, lengths,
+  volumes, digital data, energy and pressure. `/deals <game>` compares every current CheapShark store offer and
+  sends the game artwork and deal details in one message.
 - **Group moderation** based on SimpleX member roles: kick, roles, block, warnings with an automatic removal limit,
   delete, anti-spam for new members, welcome messages and rules.
 - **Reminders** that survive restarts, in DMs and groups. Only the person who made a poll or reminder can close or
@@ -46,9 +50,9 @@ lookups can go through Tor.
 | Category | Commands |
 |---|---|
 | 📖 General | `/help` `/whoami` `/ping` `/about` `/invite` |
-| 🛠 Utility | `/remind` `/reminders` `/poll` `/calc` `/roll` `/choose` `/time` `/qr` `/uuid` `/password` `/hash` `/base64` `/timestamp` |
-| 🌐 Web | `/reddit` `/x` `/weather` `/wiki` `/define` `/currency` `/crypto` `/status` `/dns` `/github` `/npm` `/country` `/holidays` `/hn` |
-| 🎲 Fun | `/8ball` `/coinflip` `/rps` `/trivia` `/joke` `/fact` `/quote` `/xkcd` |
+| 🛠 Utility | `/remind` `/reminders` `/poll` `/calc` `/convert` `/roll` `/choose` `/time` `/qr` `/uuid` `/password` `/hash` `/base64` `/timestamp` |
+| 🌐 Web | `/reddit` `/x` `/deals` `/weather` `/wiki` `/define` `/currency` `/crypto` `/status` `/dns` `/github` `/npm` `/country` `/holidays` `/hn` |
+| 🎲 Fun | `/8ball` `/coinflip` `/rps` `/trivia` `/wyr` `/joke` `/fact` `/quote` `/xkcd` |
 | 👥 Groups | `/groupinfo` `/members` `/rules` `/welcome` `/link` `/antispam` `/groupmenu` |
 | 🛡 Moderation | `/kick` `/role` `/block` `/unblock` `/warn` `/warnings` `/unwarn` `/delete` (reply to a message) |
 | ⚙️ Admin | `/reload` `/stats` `/groups` `/leave` `/broadcast` `/join` (bot admins only) |
@@ -56,7 +60,7 @@ lookups can go through Tor.
 In chat, send `/help <category>` for descriptions, or `/help <command>` for usage, arguments and examples.
 
 The web commands use free public APIs that need no key: Open-Meteo, Wikipedia, Free Dictionary, Frankfurter (ECB rates),
-CoinGecko, Cloudflare DNS-over-HTTPS, GitHub, npm, Nager.Date, Hacker News, JokeAPI, xkcd and Open Trivia DB.
+CoinGecko, Cloudflare DNS-over-HTTPS, GitHub, npm, Nager.Date, Hacker News, JokeAPI, xkcd, CheapShark and Open Trivia DB.
 `/country` uses built-in data and makes no request. `/reddit` reads posts from the
 [Arctic Shift](https://arctic-shift.photon-reddit.com) archive and downloads media from Reddit's servers.
 `/x` uses the [FxTwitter](https://github.com/FxEmbed/FxEmbed) API and downloads media from X's servers.
