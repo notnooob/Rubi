@@ -9,7 +9,7 @@ interface Rates {
 
 export default defineCommand({
   name: "currency",
-  aliases: ["convert", "fx"],
+  aliases: ["fx"],
   description: "Convert money: /currency 20 usd eur",
   details: "European Central Bank reference rates via frankfurter.dev (updated on working days). Leave out the target for a few common ones.",
   category: "Web",
