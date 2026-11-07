@@ -1,7 +1,7 @@
 /**
  * Safe calculator (no eval): + - * / % ^ (also × ÷ **), parentheses, unary minus.
  * Functions: sqrt cbrt abs round floor ceil sin cos tan asin acos atan log (base 10) ln log2 exp min max.
- * Constants: pi, e, tau. Not supported: implicit multiplication ("2(3)") and thousands separators.
+ * Constants: pi, e, tau. Not supported: implicit multiplication ("2(3)"). Commas group digits ("1,000 + 2").
  */
 export class CalcError extends Error {}
 
@@ -23,9 +23,9 @@ function tokenize(src: string): Tok[] {
     if (/\s/.test(c)) {
       i++
     } else if (/[0-9.]/.test(c)) {
-      const m = s.slice(i).match(/^(\d+\.?\d*|\.\d+)(e[+-]?\d+)?/i)
+      const m = s.slice(i).match(/^((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d*)?|\.\d+)(e[+-]?\d+)?/i)
       if (!m) throw new CalcError(`Unexpected "${c}"`)
-      out.push({t: "num", v: Number(m[0])})
+      out.push({t: "num", v: Number(m[1]!.replace(/,/g, "") + (m[2] ?? ""))})
       i += m[0].length
     } else if (/[a-z]/i.test(c)) {
       const m = s.slice(i).match(/^[a-z][a-z0-9]*/i)!

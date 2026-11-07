@@ -15,7 +15,7 @@ export default defineCommand({
   async run(ctx) {
     if (ctx.args.member.toLowerCase() === "limit") {
       if (!ctx.can("admin")) return ctx.fail("Only admins can change the warning limit.")
-      const n = Number(ctx.args.reason)
+      const n = Number(ctx.args.reason?.replace(/,/g, ""))
       if (!Number.isInteger(n) || n < 0 || n > 50) return ctx.usageError("Give a number from 0 (never remove) to 50.")
       await ctx.groupData.update((s) => {
         s.warnLimit = n

@@ -358,9 +358,9 @@ export class CommandContext<A = Record<string, unknown>> {
     const all = [g.membership, ...(await this.members())]
     const byId = (id: number) => all.find((m) => m.groupMemberId === id)
 
-    const idMatch = raw.match(/^#(\d+)$/)
+    const idMatch = raw.match(/^#([\d,]+)$/)
     if (idMatch) {
-      const m = byId(Number(idMatch[1]))
+      const m = byId(Number(idMatch[1]!.replace(/,/g, "")))
       if (m) return m
       throw new UsageError(`No member with id #${idMatch[1]}.`)
     }

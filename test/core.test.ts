@@ -7,6 +7,10 @@ import {roleAtLeast} from "../src/core/permissions"
 import {T} from "@simplex-chat/types"
 import * as fmt from "../src/util/format"
 import {loadConfig, MAX_AVATAR_DATA_URI} from "../src/config"
+import {botMenuBudget, groupMenuBudget, MAX_INFO_BYTES} from "../src/core/profile"
+import {CommandRegistry} from "../src/core/registry"
+import {createLogger, setLogLevel} from "../src/core/logger"
+import {COMMANDS_DIR} from "../src/paths"
 
 const noMembers = async (): Promise<never> => {
   throw new Error("no members")
@@ -46,6 +50,14 @@ describe("args", () => {
     await assert.rejects(parseArgs(defs, "x", noMembers), /whole number/)
     await assert.rejects(parseArgs(defs, "11", noMembers), /at most 10/)
     await assert.rejects(parseArgs(defs, "1 maybe", noMembers), /one of: on, off/)
+  })
+  it("accepts commas in integer and number arguments", async () => {
+    const defs = [
+      {name: "whole", type: "integer", description: "", required: true},
+      {name: "decimal", type: "number", description: "", required: true},
+    ] as const
+    assert.deepEqual(await parseArgs(defs, "1,000 1,234.5", noMembers), {whole: 1000, decimal: 1234.5})
+    await assert.rejects(parseArgs(defs, "1,000x 2", noMembers), /whole number/)
   })
   it("rejects extra args and parses booleans", async () => {
     const defs = [{name: "flag", type: "boolean", description: ""}] as const
@@ -115,5 +127,44 @@ describe("permissions", () => {
     assert.ok(roleAtLeast(T.GroupMemberRole.Admin, T.GroupMemberRole.Admin))
     assert.ok(!roleAtLeast(T.GroupMemberRole.Moderator, T.GroupMemberRole.Admin))
     assert.ok(!roleAtLeast(undefined, T.GroupMemberRole.Observer))
+  })
+})
+
+describe("profile size budget", () => {
+  const registry = () => {
+    setLogLevel("error")
+    const r = new CommandRegistry(COMMANDS_DIR, createLogger("test"))
+    r.load()
+    return r
+  }
+  const size = (m: unknown) => Buffer.byteLength(JSON.stringify(m))
+
+  it("the default avatar leaves room for the full command menu (with room to grow)", () => {
+    const cfg = loadConfig()
+    const budget = botMenuBudget(cfg.profile, {allowFiles: false})
+    const {menu, level, dropped} = registry().menuWithin({maxBytes: budget})
+    assert.equal(level, "full", `menu is ${size(menu)} bytes but only ${budget} fit next to the avatar: shrink the avatar (npm run avatar)`)
+    assert.equal(dropped, 0)
+    assert.ok(budget - size(menu) > 800, "keep some headroom for new commands")
+  })
+
+  it("shrinks the menu step by step instead of failing", () => {
+    const r = registry()
+    const full = size(r.menu())
+    assert.equal(r.menuWithin({maxBytes: full - 1}).level, "no-params")
+    const keywords = r.menuWithin({maxBytes: 2600})
+    assert.equal(keywords.level, "keywords")
+    assert.ok(size(keywords.menu) <= 2600)
+    const tiny = r.menuWithin({maxBytes: 600})
+    assert.ok(tiny.dropped > 0 && size(tiny.menu) <= 600, "drops commands only as a last resort")
+  })
+
+  it("counts the address link and a group's own picture", () => {
+    const profile = {displayName: "Rubi", fullName: ""}
+    const short = botMenuBudget(profile, {allowFiles: false, contactLink: "https://smp.example/a#x"})
+    assert.ok(botMenuBudget(profile, {allowFiles: false}) < short, "an unknown link reserves space")
+    const plain = groupMenuBudget({displayName: "Club", fullName: ""})
+    assert.equal(groupMenuBudget({displayName: "Club", fullName: "", image: "x".repeat(5000)}), plain - 5000 - Buffer.byteLength(',"image":""'))
+    assert.ok(plain < MAX_INFO_BYTES)
   })
 })

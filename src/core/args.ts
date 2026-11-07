@@ -6,7 +6,7 @@ import {UsageError} from "./errors"
  *
  * - `string`  — one word, or a "quoted phrase"
  * - `text`    — everything that's left (must be the last argument)
- * - `integer` / `number` — validated numbers (`min` / `max` optional)
+ * - `integer` / `number` — validated numbers (`min` / `max` optional); `1,000` and `1_000` are accepted
  * - `boolean` — yes/no, on/off, true/false, 1/0
  * - `member`  — a group member: `@mention`, `@'Name With Spaces'`, display name, or `#groupMemberId` (groups only)
  *
@@ -136,7 +136,7 @@ async function convert(def: ArgDef, v: string, resolveMember: MemberResolver): P
       return checkChoices(def, v)
     case "integer":
     case "number": {
-      const num = Number(v.replace(/_/g, ""))
+      const num = Number(v.replace(/[,_]/g, ""))
       if (!Number.isFinite(num) || (def.type === "integer" && !Number.isInteger(num))) {
         throw new UsageError(`${argLabel(def)} must be ${def.type === "integer" ? "a whole number" : "a number"}, got "${v}".`)
       }

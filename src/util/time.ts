@@ -17,16 +17,23 @@ const UNITS: Record<string, number> = {
 export function parseDuration(input: string): number | undefined {
   const s = input.trim().toLowerCase()
   if (!s) return undefined
-  const re = /(\d+(?:\.\d+)?)\s*([a-z]+)/g
+  // A comma after a duration unit separates parts ("1h,30m"); elsewhere it
+  // belongs to the number ("1,000s", "1,5h").
+  const normalized = s.replace(/([a-z]),/g, "$1 ")
   let total = 0
-  let consumed = ""
-  for (let m: RegExpExecArray | null; (m = re.exec(s)); ) {
+  let pos = 0
+  while (pos < normalized.length) {
+    const separator = normalized.slice(pos).match(/^(?:\s+|and\s+)/)
+    if (separator) pos += separator[0].length
+    const m = normalized.slice(pos).match(/^(\d+(?:[.,]\d+)*)\s*([a-z]+)/)
+    if (!m) return undefined
     const unit = UNITS[m[2]!]
     if (unit === undefined) return undefined
-    total += Number(m[1]) * unit
-    consumed += m[0]
+    const number = m[1]!.replace(/,(\d{1,2})(?!\d)/, ".$1").replace(/,/g, "")
+    total += Number(number) * unit
+    pos += m[0].length
   }
-  if (!total || consumed.replace(/\s/g, "") !== s.replace(/\s|,|and/g, "")) return undefined
+  if (!total) return undefined
   return Math.round(total)
 }
 

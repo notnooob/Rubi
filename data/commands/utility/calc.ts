@@ -10,7 +10,7 @@ export default defineCommand({
   examples: ["calc 2+2", "calc sqrt(2)*10", "calc 15% * 80"],
   run(ctx) {
     // "15%" on its own means 0.15 in everyday use
-    const expr = ctx.args.expression.replace(/(\d+(?:\.\d+)?)%(?!\s*[\d(])/g, "($1/100)")
+    const expr = ctx.args.expression.replace(/([\d,]+(?:\.\d+)?)%(?!\s*[\d(])/g, "($1/100)")
     try {
       const result = evaluate(expr)
       return `🧮 ${fmt.code(ctx.args.expression)} = ${fmt.bold(fmt.num(result, 10))}`

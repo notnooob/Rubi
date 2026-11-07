@@ -66,7 +66,7 @@ defineInteraction<TriviaState>("trivia", {
     return pick(ix, r.userKey, r.displayName, i) ? render(ix) : undefined
   },
   onButton(ix, args, ctx) {
-    const i = Number(args[0]) - 1
+    const i = Number(args[0]?.replace(/,/g, "")) - 1
     if (!(i >= 0 && i < ix.state.answers.length)) return {reply: "Pick one of the answers."}
     if (ix.state.picks[ctx.sender.key]) return {reply: "You already answered — first answer counts!"}
     if (!pick(ix, ctx.sender.key, ctx.sender.displayName, i)) return {reply: "Too late — this question is closed."}

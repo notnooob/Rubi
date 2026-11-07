@@ -19,7 +19,7 @@ export default defineCommand({
   cooldown: 3,
   async run(ctx) {
     const words = ctx.args.query.toUpperCase().replace(/\bTO\b|\bIN\b/g, " ").split(/\s+/).filter(Boolean)
-    const amount = words[0] && /^[\d.,]+$/.test(words[0]) ? Number(words.shift()!.replace(/,/g, "")) : 1
+    const amount = words[0] && /^[\d,]+(?:\.\d+)?$/.test(words[0]) ? Number(words.shift()!.replace(/,/g, "")) : 1
     const [from, to] = words
     if (!from || !/^[A-Z]{3}$/.test(from) || (to && !/^[A-Z]{3}$/.test(to)) || !Number.isFinite(amount) || amount <= 0) {
       return ctx.usageError("Use 3-letter currency codes, e.g. 20 usd eur.")

@@ -12,8 +12,10 @@ export default defineCommand({
     const v = ctx.args.value?.trim()
     let ms: number
     if (!v) ms = Date.now()
-    else if (/^-?\d+(\.\d+)?$/.test(v)) ms = v.replace(/^-/, "").split(".")[0]!.length >= 13 ? Number(v) : Number(v) * 1000
-    else ms = Date.parse(v)
+    else if (/^-?[\d,]+(\.\d+)?$/.test(v)) {
+      const n = v.replace(/,/g, "")
+      ms = n.replace(/^-/, "").split(".")[0]!.length >= 13 ? Number(n) : Number(n) * 1000
+    } else ms = Date.parse(v)
     if (!Number.isFinite(ms) || Math.abs(ms) > 8.64e15) return ctx.usageError(`I can't read "${v}" as a time.`)
     const d = new Date(ms)
     return fmt.lines(

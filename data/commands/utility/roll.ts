@@ -11,11 +11,11 @@ export default defineCommand({
   cooldown: 1,
   run(ctx) {
     const spec = (ctx.args.dice ?? "1d6").toLowerCase().replace(/\s/g, "")
-    const m = spec.match(/^(\d*)d(\d+)([+-]\d+)?$/) ?? spec.match(/^()(\d+)()$/)
+    const m = spec.match(/^([\d,]*)d([\d,]+)([+-][\d,]+)?$/) ?? spec.match(/^()([\d,]+)()$/)
     if (!m) return ctx.usageError(`"${spec}" isn't a dice roll — try 2d6, d20, 3d8+2 or 100.`)
-    const count = m[1] ? Number(m[1]) : 1
-    const sides = Number(m[2])
-    const mod = m[3] ? Number(m[3]) : 0
+    const count = m[1] ? Number(m[1].replace(/,/g, "")) : 1
+    const sides = Number(m[2]!.replace(/,/g, ""))
+    const mod = m[3] ? Number(m[3].replace(/,/g, "")) : 0
     if (count < 1 || count > 100) return ctx.usageError("Roll between 1 and 100 dice.")
     if (sides < 2 || sides > 1_000_000) return ctx.usageError("Dice need 2 to 1,000,000 sides.")
     const rolls = Array.from({length: count}, () => randomInt(1, sides + 1))
