@@ -148,9 +148,9 @@ export interface RubiConfig {
     proxy?: string
     userAgent: string
   }
-  /** Files Rubi downloads to send as attachments (e.g. /reddit media). */
+    /** Files Rubi downloads to send as attachments (e.g. /reddit media). */
   media: {
-    /** Download folder. Files are deleted after a day (once SimpleX has uploaded them). */
+    /** Download folder. Files are deleted shortly after SimpleX has uploaded them (30 minutes at the latest). */
     dir: string
     /** Biggest single file Rubi downloads, in bytes. */
     maxFileBytes: number
@@ -211,7 +211,7 @@ export function loadConfig(): RubiConfig {
     media: {
       dir: path.resolve(str("RUBI_MEDIA_DIR", "./storage/media")),
       maxFileBytes: int("RUBI_MEDIA_MAX_MB", 50) * 1024 * 1024,
-      ffmpeg: env("RUBI_FFMPEG") ?? "ffmpeg",
+      ffmpeg: process.env.RUBI_FFMPEG !== undefined && process.env.RUBI_FFMPEG.trim() === "" ? "" : env("RUBI_FFMPEG") ?? "ffmpeg",
     },
     stateFile: str("RUBI_STATE_FILE", "./storage/rubi-state.json"),
   }

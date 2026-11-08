@@ -19,7 +19,7 @@ lookups can go through Tor.
 
 ## Features
 
-- **65 commands**, each in its own file, in 7 categories. `/help` builds itself from them and only shows what
+- **68 commands**, each in its own file, in 7 categories. `/help` builds itself from them and only shows what
   you're allowed to run in the current chat.
 - **Live replies:** slow commands answer straight away with a live message that turns into the result
   (and jokes reveal their punchline live).
@@ -36,6 +36,8 @@ lookups can go through Tor.
 - **Unit conversion and game deals:** `/convert` handles common units offline, including temperatures, lengths,
   volumes, digital data, energy and pressure. `/deals <game>` compares every current CheapShark store offer and
   sends the game artwork and deal details in one message.
+- **Personal and group organization:** `/prefs` saves DM defaults, `/todo` maintains small chat task lists, `/event`
+  handles visible group RSVPs, and `/cleanlink` removes common tracking parameters without opening URLs.
 - **Group moderation** based on SimpleX member roles: kick, roles, block, warnings with an automatic removal limit,
   delete, anti-spam for new members, welcome messages and rules.
 - **Reminders** that survive restarts, in DMs and groups. Only the person who made a poll or reminder can close or
@@ -50,10 +52,10 @@ lookups can go through Tor.
 | Category | Commands |
 |---|---|
 | 📖 General | `/help` `/whoami` `/ping` `/about` `/invite` |
-| 🛠 Utility | `/remind` `/reminders` `/poll` `/calc` `/convert` `/roll` `/choose` `/time` `/qr` `/uuid` `/password` `/hash` `/base64` `/timestamp` |
+| 🛠 Utility | `/remind` `/reminders` `/poll` `/calc` `/convert` `/prefs` `/todo` `/cleanlink` `/roll` `/choose` `/time` `/qr` `/uuid` `/password` `/hash` `/base64` `/timestamp` |
 | 🌐 Web | `/reddit` `/x` `/deals` `/weather` `/wiki` `/define` `/currency` `/crypto` `/status` `/dns` `/github` `/npm` `/country` `/holidays` `/hn` |
 | 🎲 Fun | `/8ball` `/coinflip` `/rps` `/trivia` `/wyr` `/joke` `/fact` `/quote` `/xkcd` |
-| 👥 Groups | `/groupinfo` `/members` `/rules` `/welcome` `/link` `/antispam` `/groupmenu` |
+| 👥 Groups | `/groupinfo` `/members` `/rules` `/welcome` `/event` `/link` `/antispam` `/groupmenu` |
 | 🛡 Moderation | `/kick` `/role` `/block` `/unblock` `/warn` `/warnings` `/unwarn` `/delete` (reply to a message) |
 | ⚙️ Admin | `/reload` `/stats` `/groups` `/leave` `/broadcast` `/join` (bot admins only) |
 
@@ -69,7 +71,7 @@ CoinGecko, Cloudflare DNS-over-HTTPS, GitHub, npm, Nager.Date, Hacker News, Joke
 
 ### 1. Requirements
 
-- **Node.js 20.12 or newer**
+- **Node.js 22.19 or newer**
 - **Build tools for the native SimpleX library.** `npm install` compiles a small addon with `node-gyp`:
   - **Windows:** [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the
     **"Desktop development with C++"** workload, plus Python. (Or run Rubi under WSL.)
@@ -152,7 +154,7 @@ All settings are environment variables, read from `.env` in the folder you start
 | `RUBI_BIO` | *The first multi-purpose SimpleX Chat bot. Send /help.* | Profile bio. |
 | `RUBI_AVATAR` | `./assets/avatar.jpg` | Profile picture (.png/.jpg, small), or `none`. |
 | `RUBI_DB_PREFIX` | `./storage/rubi` | Where the SQLite database files go. |
-| `RUBI_DB_KEY` | *(none)* | Encrypts the database. Set it before the first start, and don't lose it. |
+| `RUBI_DB_KEY` | *(none)* | Encrypts the SQLite database. JSON state in `storage/rubi-state.json` remains a separate file. Set it before the first start, and don't lose it. |
 | `RUBI_DB_TYPE` / `RUBI_PG_URL` | `sqlite` | Use `postgres` + a connection URL instead (Linux x86_64 only). |
 | `RUBI_BUSINESS_ADDRESS` | `false` | Each person who connects gets their own business chat. |
 | `RUBI_ALLOW_FILES` | `false` | Let people send files to Rubi. |
@@ -165,7 +167,7 @@ All settings are environment variables, read from `.env` in the folder you start
 | `RUBI_FLOOD_MAX` / `RUBI_FLOOD_WINDOW_MS` | `6` / `15000` | Anti-flood: at most this many commands per person per window. |
 | `RUBI_HTTP_PROXY` | *(none)* | Send web lookups through a proxy, e.g. `socks5://127.0.0.1:9050` for Tor. |
 | `RUBI_MEDIA_MAX_MB` | `50` | Largest file `/reddit` and `/x` download and attach. |
-| `RUBI_FFMPEG` | `ffmpeg` | Path to ffmpeg (adds sound to Reddit videos). Set it empty to turn this off. |
+| `RUBI_FFMPEG` | `ffmpeg` | Path to ffmpeg (adds sound to Reddit videos). Set it to an empty value to turn this off. |
 | `RUBI_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`. |
 
 Restart Rubi after changing `.env`. Profile changes (name, bio, picture) are sent to all contacts automatically.
@@ -193,7 +195,7 @@ group and leaves out convenience buttons.
 
 - One command per file in `data/commands/<category>/`. Copy `data/commands/_template.ts` to start a new one;
   `/help`, the app menu and argument checking pick it up automatically.
-- `npm run check` runs the typecheck and tests. The tests use a fake chat core, so they need no native library or network.
+- `npm run check` runs the typecheck and tests. The tests use a fake chat core, so they need no native library or external network.
 - `npm run docs:sync` mirrors the official SimpleX bot API docs into `docs/`.
 - `npm run avatar` re-renders the profile pictures from `assets/avatar.svg`.
 - [AGENTS.md](AGENTS.md) covers the architecture, the utilities available to commands, and the SimpleX quirks Rubi

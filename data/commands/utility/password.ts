@@ -11,7 +11,7 @@ export default defineCommand({
   name: "password",
   aliases: ["pass", "pw"],
   description: "Generate a strong random password (DMs only)",
-  details: "Generated with a cryptographic RNG and never stored. Look-alike characters (0/O, 1/l/I) are left out. DMs only, so it isn't shown to a whole group.",
+  details: "Generated with a cryptographic RNG and not stored by Rubi separately. It remains in SimpleX chat history until you delete the message. Look-alike characters (0/O, 1/l/I) are left out. DMs only, so it isn't shown to a whole group.",
   category: "Utility",
   scope: "direct",
   args: [
@@ -27,6 +27,6 @@ export default defineCommand({
     let pw = ""
     for (let i = 0; i < length; i++) pw += set[randomInt(set.length)]
     const bits = Math.round(length * Math.log2(set.length))
-    return fmt.lines(`🔑 ${fmt.code(pw)}`, fmt.italic(`${length} characters · ~${bits} bits of entropy · not stored anywhere`), ctx.ui.button("🔁", "password", [ctx.args.length, ctx.args.kind].filter(Boolean).join(" ")))
+    return fmt.lines(`🔑 ${fmt.code(pw)}`, fmt.italic(`${length} characters · ~${bits} bits of entropy · Rubi does not store it separately`), ctx.ui.button("🔁", "password", [ctx.args.length, ctx.args.kind].filter(Boolean).join(" ")))
   },
 })

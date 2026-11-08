@@ -30,11 +30,11 @@ It's going to be open-sourced, so keep code, comments and docs clean enough for 
 
 Commands (one file each in `data/commands/<category>/`; the folder is the category):
 - **General:** `/help` `/whoami` `/ping` `/about` `/invite`
-- **Utility:** `/remind` `/reminders` `/poll` `/calc` `/convert` `/roll` `/choose` `/time` `/qr` `/uuid` `/password` `/hash`
+- **Utility:** `/remind` `/reminders` `/poll` `/calc` `/convert` `/prefs` `/todo` `/cleanlink` `/roll` `/choose` `/time` `/qr` `/uuid` `/password` `/hash`
   `/base64` `/timestamp` (+ hidden helpers `/unremind`, `/endpoll`)
 - **Web:** `/reddit` (alias `/r`) `/x` (aliases `/twitter`, `/tweet`) `/deals` `/weather` `/wiki` `/define` `/currency` `/crypto` `/status` `/dns` `/github` `/npm` `/country` `/holidays` `/hn`
 - **Fun:** `/8ball` `/coinflip` `/rps` `/trivia` (including `tournament`) `/wyr` `/joke` `/fact` `/quote` `/xkcd`
-- **Groups:** `/groupinfo` `/members` `/rules` `/welcome` `/link` `/antispam` `/groupmenu`
+- **Groups:** `/groupinfo` `/members` `/rules` `/welcome` `/event` `/link` `/antispam` `/groupmenu`
 - **Moderation:** `/kick` `/role` `/block` `/unblock` `/warn` `/warnings` `/unwarn` `/delete`
 - **Admin** (bot admins): `/reload` `/stats` `/groups` `/leave` `/broadcast` `/join`
 - **System** (hidden; buttons send these): `/vote` `/page` `/confirm` `/cancel`
@@ -101,7 +101,9 @@ tsconfig.json          ← typecheck config (src + data + test); tsconfig.build.
 scripts/sync-docs.mjs  ← mirrors upstream docs into docs/
 scripts/make-avatar.mjs  ← assets/avatar.svg → avatar.png (512px), avatar-round.png (README) + avatar.jpg (profile pic, ≤ 9K data URI)
 scripts/setup-native.mjs ← installs/repairs the simplex-chat native lib + rebuilds the addon
+scripts/check-docs.mjs   ← validates command-count, command-table and configuration documentation
 assets/                ← avatar.svg (source), avatar.png, avatar-round.png (README), avatar.jpg (default RUBI_AVATAR)
+.github/workflows/check.yml ← native-free CI typecheck, tests, build and documentation checks
 docs/                  ← GENERATED SimpleX API docs (see above)
 data/
   commands/            ← ONE FILE PER COMMAND (auto-loaded, recursive; subfolder = default category)
@@ -156,6 +158,7 @@ src/
     time.ts            ← parseDuration, parseWhen ("10m", "18:30", "tomorrow 9am"), formatDateTime
     calc.ts            ← safe expression evaluator (no eval)
     units.ts           ← offline /convert units, aliases and affine temperature conversions
+    links.ts           ← offline tracking-parameter cleaning and URL extraction
     qr.ts              ← QR code → inline image data URI
     moderation.ts      ← assertCanModerate + moderate() (role checks, friendly chat-core errors)
     media.ts           ← thumbnails (sharp), ffmpeg audio merge / frames, download folders (storage/media)
@@ -170,6 +173,7 @@ test/
   convert.test.ts      ← /convert: offline unit aliases, conversions, parsing and command replies
   deals.test.ts        ← /deals: CheapShark data, best deals, live image+caption and text fallbacks
   tournament.test.ts   ← /wyr voting and multi-round /trivia tournament scores and jobs
+  improvements.test.ts ← preferences, tasks, clean links, future time, events and health diagnostics
 storage/               ← SQLite DB files, rubi-state.json, rubi.lock, media/ downloads (gitignored)
 ```
 
@@ -265,6 +269,9 @@ Everything below is exported from `src/sdk.ts` and/or available on `ctx` / `rt`.
   best deals. The game
   thumbnail is downloaded and reduced with `thumbnail()`, and sent in the same image message as the complete caption
   (text fallback if unavailable). CheapShark requires its redirect URLs, not direct store links.
+- **Personal/group organization:** `/prefs` stores DM-only weather/country/currency defaults; `/todo` stores bounded
+  personal or group tasks; `/event` creates one-off visible group RSVPs with a scheduled reminder; `/cleanlink` removes
+  common tracking parameters without opening the URL; `/time at` converts an explicit ISO instant across IANA zones.
 - **Time:** `parseWhen("tomorrow 9:00 call mom", now, tz)` gives `{at, rest}`; also `parseDuration("1h30m")`,
   `formatDateTime(at, tz)` and `fmt.relative(at)`.
 - **Moderation:** `assertCanModerate(ctx, target, "kick")` checks not self, not the bot, and that both the invoker's and the
@@ -324,8 +331,8 @@ Don't handle `newChatItems` for commands, because the dispatcher already does th
   Otherwise use WSL/Linux/macOS. Postgres backend: Linux x86_64 only.
 - The package's preinstall unzip (`extract-zip`) **stops silently partway on Node 26**. It leaves a truncated
   `libsimplex.dll` and no `libsimplex.lib`, so linking fails with LNK1104. Fix: `npm run setup:native`.
-- npm 11 only runs approved install scripts. `simplex-chat` and `esbuild` are approved in `package.json` → `allowScripts`,
-  pinned to exact versions. **When you bump `simplex-chat`, re-approve it** (`npm install-scripts approve simplex-chat`),
+- npm 11 only runs approved install scripts. `simplex-chat` and `esbuild` are approved in `package.json` → `allowScripts`;
+  the dependency ranges remain managed by `package-lock.json`. **When you bump `simplex-chat`, re-approve it** (`npm install-scripts approve simplex-chat`),
   or the addon won't be built.
 - Profile images must stay under ~12.5K chars as a data URI. `src/config.ts` warns when they don't. But the whole
   profile (avatar + menu + address link) must also stay under 14 694 bytes, so `npm run avatar` aims for ≤ 9K.
@@ -364,6 +371,6 @@ Don't handle `newChatItems` for commands, because the dispatcher already does th
 ## Workflow
 
 - `npm run dev`: run from TypeScript (tsx). `npm run build && npm start`: compiled (`dist/`).
-- `npm run check`: typecheck + tests. **Keep it green.** Tests use `FakeChat` and need no native library or network.
+- `npm run check`: typecheck + tests. **Keep it green.** Tests use `FakeChat` and need no native library or external network.
 - Don't commit `storage/` (the chat database holds the bot's identity and keys) or `.env`.
 - Don't change the welcome message text without being asked. It's specified as exactly `Hi, I'm Rubi. Send /help.`
