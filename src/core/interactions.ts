@@ -58,6 +58,7 @@ export interface InteractionHandlers<S = any> {
   onReaction?(ix: Interaction<S>, r: ReactionInput, rt: Runtime): InteractionUpdate | Promise<InteractionUpdate>
   /** `/vote <id> <args...>` — `args` are the words after the id. */
   onButton?(ix: Interaction<S>, args: string[], ctx: CommandContext<any>): InteractionUpdate | Promise<InteractionUpdate>
+  onCancel?(ix: Interaction<S>, ctx: CommandContext<any>): InteractionUpdate | Promise<InteractionUpdate>
 }
 
 const kinds = new Map<string, InteractionHandlers>()
@@ -70,6 +71,27 @@ export function defineInteraction<S>(kind: string, handlers: InteractionHandlers
 export class Interactions {
   private readonly items: Collection<Interaction>
   private chains = new Map<string, Promise<unknown>>()
+  private accepting = true
+
+  get activeCount(): number {
+    return this.items.size
+  }
+
+  counts(): Record<string, number> {
+    return this.items.values().reduce<Record<string, number>>((out, ix) => {
+      out[ix.kind] = (out[ix.kind] ?? 0) + 1
+      return out
+    }, {})
+  }
+
+  hasActive(kind: string, ref: T.ChatRef, predicate?: (ix: Interaction) => boolean): boolean {
+    return this.items.values().some((ix) => ix.kind === kind && chatKey(ix.ref) === chatKey(ref) && !this.expired(ix) && (!predicate || predicate(ix)))
+  }
+
+  find<S = any>(predicate: (ix: Interaction) => boolean): Interaction<S> | undefined {
+    const ix = this.items.values().find((candidate) => !this.expired(candidate) && predicate(candidate))
+    return ix as Interaction<S> | undefined
+  }
 
   constructor(
     store: Store,
@@ -110,20 +132,24 @@ export class Interactions {
     this.items.delete(id)
   }
 
-  /** Route a `/vote <id> …` tap. */
+  /** Route a `/vote <id> …` tap. The interaction is re-read inside its serial queue. */
   async button(id: string, args: string[], ctx: CommandContext<any>): Promise<string | undefined> {
-    const ix = this.get(id)
-    if (!ix) throw new CommandError("That has ended or expired.")
-    if (chatKey(ix.ref) !== chatKey(ctx.ref)) throw new CommandError("That button belongs to another chat.")
-    const handler = kinds.get(ix.kind)?.onButton
-    if (!handler) throw new CommandError("That message has no buttons.")
-    const result = await this.serial(ix.id, async () => this.apply(ix, await handler(ix, args, ctx), ctx.rt))
+    if (!this.accepting) throw new CommandError("The bot is shutting down.")
+    const result = await this.serial(id, async () => {
+      const ix = this.get(id)
+      if (!ix) throw new CommandError("That has ended or expired.")
+      if (chatKey(ix.ref) !== chatKey(ctx.ref)) throw new CommandError("That button belongs to another chat.")
+      const handler = kinds.get(ix.kind)?.onButton
+      if (!handler) throw new CommandError("That message has no buttons.")
+      return this.apply(ix, await handler(ix, args, ctx), ctx.rt)
+    })
     if (result?.ack) await ctx.react(result.ack)
     return result?.reply
   }
 
   /** Core handler for `chatItemReaction` events. */
   async onReaction(evt: CEvt.ChatItemReaction, rt: Runtime): Promise<void> {
+    if (!this.accepting) return
     const {chatInfo, chatReaction} = evt.reaction
     const dir = chatReaction.chatDir
     if (dir.type !== "directRcv" && dir.type !== "groupRcv") return // ignore the bot's own reactions
@@ -131,10 +157,6 @@ export class Interactions {
     if (!ref) return
     const key = chatKey(ref)
     const itemId = chatReaction.chatItem.meta.itemId
-    const ix = this.items.values().find((i) => i.itemId === itemId && chatKey(i.ref) === key)
-    if (!ix || this.expired(ix)) return
-    const handler = kinds.get(ix.kind)?.onReaction
-    if (!handler) return
     const r = chatReaction.reaction
     const input: ReactionInput = {
       emoji: r.type === "emoji" ? r.emoji : r.tag,
@@ -143,23 +165,68 @@ export class Interactions {
         ? {userKey: `g${ref.chatId}:m${dir.groupMember.groupMemberId}`, displayName: dir.groupMember.memberProfile.displayName, member: dir.groupMember}
         : {userKey: `c${ref.chatId}`, displayName: chatInfo.type === "direct" ? chatInfo.contact.profile.displayName : "?"}),
     }
-    // don't block the event loop on the message edit
-    void this.serial(ix.id, async () => this.apply(ix, await handler(ix, input, rt), rt)).catch((e) =>
-      this.log.warn(`reaction handler for ${ix.kind}/${ix.id} failed: ${describeError(e)}`)
-    )
+    // Re-read the interaction inside the queue: a close/reveal may have won the race.
+    const candidate = this.items.values().find((i) => i.itemId === itemId && chatKey(i.ref) === key)
+    if (!candidate) return
+    void this.serial(candidate.id, async () => {
+      const ix = this.get(candidate.id)
+      if (!ix) return
+      const handler = kinds.get(ix.kind)?.onReaction
+      if (handler) await this.apply(ix, await handler(ix, input, rt), rt)
+    }).catch((e) => this.log.warn(`reaction handler failed: ${describeError(e)}`))
+  }
+
+  /** Close an interaction only by its creator, serializing the terminal edit with votes. */
+  async closeOwned<S>(id: string, ctx: CommandContext<any>, render: (ix: Interaction<S>) => string): Promise<void> {
+    await this.serial(id, async () => {
+      const ix = this.get<S>(id)
+      if (!ix) throw new CommandError("That interaction has ended or expired.")
+      if (chatKey(ix.ref) !== chatKey(ctx.ref)) throw new CommandError("That interaction belongs to another chat.")
+      if (ix.ownerKey !== ctx.sender.key) {
+        const owner = (ix.state as any)?.ownerName
+        throw new CommandError(owner ? `Only the poll's creator (${owner}) can close it.` : "Only the person who started it can close it.")
+      }
+      const text = render(ix)
+      await ctx.rt.messenger.update(ix.ref, ix.itemId, text)
+      this.end(id)
+    })
+  }
+
+  /** Cancel an interaction through its registered handler, preserving ownership and serialization. */
+  async cancel(id: string, ctx: CommandContext<any>): Promise<string | undefined> {
+    if (!this.accepting) throw new CommandError("The bot is shutting down.")
+    const result = await this.serial(id, async () => {
+      const ix = this.get(id)
+      if (!ix) throw new CommandError("That interaction has ended or expired.")
+      if (chatKey(ix.ref) !== chatKey(ctx.ref)) throw new CommandError("That interaction belongs to another chat.")
+      if (ix.ownerKey !== ctx.sender.key) throw new CommandError("Only the person who started it can cancel it.")
+      const handler = kinds.get(ix.kind)?.onCancel
+      if (!handler) throw new CommandError("That interaction cannot be cancelled.")
+      return this.apply(ix, await handler(ix, ctx), ctx.rt)
+    })
+    return result?.reply
+  }
+
+  /** Run a terminal or scheduled transition through the same per-interaction queue as votes. */
+  async mutate<S, R>(id: string, fn: (ix: Interaction<S>) => Promise<R> | R): Promise<R | undefined> {
+    return this.serial(id, async () => {
+      const ix = this.get<S>(id)
+      return ix ? fn(ix) : undefined
+    })
   }
 
   private async apply(ix: Interaction, update: InteractionUpdate, rt: Runtime) {
     const u = typeof update === "string" ? {text: update} : (update ?? {})
-    if (u.done) this.end(ix.id)
-    else this.save(ix)
     if (u.text !== undefined) {
       try {
         await rt.messenger.update(ix.ref, ix.itemId, u.text)
       } catch (e) {
         this.log.warn(`could not update ${ix.kind} message: ${describeError(e)}`)
+        return u
       }
     }
+    if (u.done) this.end(ix.id)
+    else this.save(ix)
     return u
   }
 
@@ -167,10 +234,11 @@ export class Interactions {
   private serial<R>(id: string, fn: () => Promise<R>): Promise<R> {
     const prev = this.chains.get(id) ?? Promise.resolve()
     const next = prev.then(fn, fn)
-    this.chains.set(
-      id,
-      next.catch(() => undefined)
-    )
+    const settled = next.catch(() => undefined)
+    this.chains.set(id, settled)
+    void settled.finally(() => {
+      if (this.chains.get(id) === settled) this.chains.delete(id)
+    })
     return next
   }
 
@@ -180,6 +248,16 @@ export class Interactions {
 
   private sweep(): void {
     for (const ix of this.items.values()) if (this.expired(ix)) this.items.delete(ix.id)
+  }
+
+  stop(): void {
+    this.accepting = false
+  }
+
+  async drain(timeoutMs: number): Promise<void> {
+    const pending = [...this.chains.values()]
+    if (!pending.length) return
+    await Promise.race([Promise.allSettled(pending), new Promise<void>((resolve) => setTimeout(resolve, timeoutMs))])
   }
 }
 

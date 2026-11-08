@@ -149,12 +149,14 @@ export class Dispatcher {
 
     this.inFlight.add(ctx)
     try {
-      this.checkAccess(ctx, cmd)
-      this.checkRate(ctx, cmd)
-      ctx.args = await parseArgs(cmd.args, rawArgs, (t) => ctx.resolveMember(t))
-      if (cmd.live) await ctx.defer(cmd.live)
-      const result = await this.runWithTimeout(ctx, cmd)
-      await this.finalize(ctx, result)
+      await this.runWithTimeout(ctx, cmd, async () => {
+        this.checkAccess(ctx, cmd)
+        this.checkRate(ctx, cmd)
+        ctx.args = await parseArgs(cmd.args, rawArgs, (t) => ctx.resolveMember(t))
+        if (cmd.live) await ctx.defer(cmd.live)
+        const result = await cmd.run(ctx)
+        await this.finalize(ctx, result)
+      })
       this.rt.stats.commandsRun++
       this.rt.stats.perCommand.set(cmd.name, (this.rt.stats.perCommand.get(cmd.name) ?? 0) + 1)
       this.log.info(`${ctx.who} ran /${cmd.name}${keyword !== cmd.name ? ` (as /${keyword})` : ""} — ${Date.now() - ctx.startedAt}ms`)
@@ -197,9 +199,9 @@ export class Dispatcher {
     }
   }
 
-  private async runWithTimeout(ctx: CommandContext<any>, cmd: Command): Promise<CommandResult> {
+  private async runWithTimeout(ctx: CommandContext<any>, cmd: Command, operation: () => Promise<void>): Promise<void> {
     const seconds = cmd.timeout ?? this.rt.config.limits.defaultTimeout
-    const run = Promise.resolve().then(() => cmd.run(ctx))
+    const run = Promise.resolve().then(operation)
     if (!seconds) return run
     let timer: NodeJS.Timeout | undefined
     const timeout = new Promise<never>((_, reject) => {
@@ -217,6 +219,7 @@ export class Dispatcher {
   }
 
   private async finalize(ctx: CommandContext<any>, result: CommandResult): Promise<void> {
+    if (ctx.signal.aborted) return
     if (typeof result === "string" ? result.length > 0 : result && typeof result === "object") {
       await ctx.deliver(result as string | T.MsgContent)
     } else if (ctx.deferred && !ctx.deferred.finished) {

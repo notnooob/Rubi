@@ -16,7 +16,10 @@ import type {Logger} from "./logger"
 export class Store {
   private data: Record<string, Record<string, unknown>> = {}
   private timer: NodeJS.Timeout | undefined
+  private retryTimer: NodeJS.Timeout | undefined
   private dirty = false
+  private lastFlushAt?: number
+  private lastFlushError?: string
 
   constructor(
     readonly file: string,
@@ -70,10 +73,24 @@ export class Store {
       const tmp = `${this.file}.tmp`
       writeFileSync(tmp, JSON.stringify(this.data, null, 1))
       renameSync(tmp, this.file)
+      this.lastFlushAt = Date.now()
+      this.lastFlushError = undefined
     } catch (e) {
       this.dirty = true
+      this.lastFlushError = (e as Error).message
       this.log.error(`could not save ${this.file}: ${(e as Error).message}`)
+      if (!this.retryTimer) {
+        this.retryTimer = setTimeout(() => {
+          this.retryTimer = undefined
+          this.flush()
+        }, 2_000)
+        this.retryTimer.unref()
+      }
     }
+  }
+
+  diagnostics(): {dirty: boolean; lastFlushAt?: number; lastFlushError?: string} {
+    return {dirty: this.dirty, lastFlushAt: this.lastFlushAt, lastFlushError: this.lastFlushError}
   }
 }
 

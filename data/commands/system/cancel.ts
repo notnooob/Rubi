@@ -12,5 +12,9 @@ export default defineCommand({
   hidden: true,
   menu: false,
   cooldown: 0,
-  run: () => "🤷 There's nothing to cancel.",
+  args: [{name: "id", type: "string", description: "Interaction id", required: false}],
+  async run(ctx) {
+    if (ctx.args.id) return (await ctx.rt.interactions.cancel(ctx.args.id.toLowerCase(), ctx)) ?? "✅ Cancelled."
+    return "🤷 There's nothing to cancel."
+  },
 })

@@ -11,6 +11,10 @@ export interface Job<P = unknown> {
   at: number
   payload: P
   createdAt: number
+  attempts?: number
+  failedAt?: number
+  lastError?: string
+  retryAt?: number
 }
 
 export type JobHandler<P = any> = (job: Job<P>, rt: Runtime) => void | Promise<void>
@@ -38,6 +42,16 @@ export class Scheduler {
   private running = new Set<string>()
   private warned = new Set<string>()
   private rt: Runtime | undefined
+  private accepting = true
+  private active = new Set<Promise<void>>()
+
+  get runningCount(): number {
+    return this.running.size
+  }
+
+  get failedCount(): number {
+    return this.jobs.values().filter((j) => !!j.failedAt).length
+  }
 
   constructor(
     store: Store,
@@ -50,6 +64,7 @@ export class Scheduler {
 
   start(rt: Runtime): void {
     this.rt = rt
+    this.accepting = true
     if (this.timer) return
     this.timer = setInterval(() => void this.tick(), this.tickMs)
     this.timer.unref()
@@ -57,6 +72,7 @@ export class Scheduler {
   }
 
   stop(): void {
+    this.accepting = false
     if (this.timer) clearInterval(this.timer)
     this.timer = undefined
   }
@@ -71,6 +87,12 @@ export class Scheduler {
     return this.jobs.delete(id)
   }
 
+  cancelWhere(predicate: (job: Job) => boolean): number {
+    let count = 0
+    for (const job of this.jobs.values()) if (predicate(job) && this.jobs.delete(job.id)) count++
+    return count
+  }
+
   get(id: string): Job | undefined {
     return this.jobs.get(id)
   }
@@ -83,10 +105,10 @@ export class Scheduler {
   /** Run due jobs now (also called by the interval). */
   async tick(): Promise<void> {
     const rt = this.rt
-    if (!rt) return
+    if (!rt || !this.accepting) return
     const now = Date.now()
     for (const job of this.jobs.values()) {
-      if (job.at > now || this.running.has(job.id)) continue
+      if (job.at > now || (job.retryAt ?? 0) > now || job.failedAt || this.running.has(job.id)) continue
       const handler = this.handlers.get(job.kind)
       if (!handler) {
         // keep it: the handler's file may just have failed to load
@@ -95,11 +117,35 @@ export class Scheduler {
         continue
       }
       this.running.add(job.id)
-      this.jobs.delete(job.id)
-      Promise.resolve()
+      const work = Promise.resolve()
         .then(() => handler(job, rt))
-        .catch((e) => this.log.error(`job ${job.kind}/${job.id} failed: ${describeError(e)}`, e))
-        .finally(() => this.running.delete(job.id))
+        .then(() => {
+          this.jobs.delete(job.id)
+        })
+        .catch((e) => {
+          const attempts = (job.attempts ?? 0) + 1
+          const message = describeError(e)
+          if (attempts >= 3) {
+            this.jobs.set(job.id, {...job, attempts, failedAt: Date.now(), lastError: message, retryAt: undefined})
+            this.log.error(`job ${job.kind}/${job.id} failed permanently: ${message}`, e)
+          } else {
+            const retryAt = Date.now() + 1_000 * 2 ** (attempts - 1)
+            this.jobs.set(job.id, {...job, attempts, lastError: message, retryAt})
+            this.log.warn(`job ${job.kind}/${job.id} failed; retry ${attempts}/3 at ${new Date(retryAt).toISOString()}: ${message}`)
+          }
+        })
+        .finally(() => {
+          this.running.delete(job.id)
+          this.active.delete(work)
+        })
+      this.active.add(work)
+    }
+  }
+
+  async drain(timeoutMs: number): Promise<void> {
+    const deadline = Date.now() + timeoutMs
+    while (this.active.size && Date.now() < deadline) {
+      await Promise.race([...this.active, new Promise<void>((resolve) => setTimeout(resolve, 50))])
     }
   }
 }

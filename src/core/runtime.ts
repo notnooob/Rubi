@@ -56,6 +56,8 @@ export interface Runtime {
   readonly pages: Pages
   /** Waiting for a user's next message (`ctx.awaitReply`, `ctx.confirm`). */
   readonly prompts: Prompts
+  /** Number of command executions still running. */
+  readonly activeCommands?: number
   /** Versions shown in /about. */
   readonly versions: {rubi: string; simplex: string; node: string}
   /** Reload command files and push the new menu (bot admins: /reload). */

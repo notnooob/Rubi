@@ -2,6 +2,8 @@ import {createWriteStream} from "node:fs"
 import {rm} from "node:fs/promises"
 import {lookup} from "node:dns/promises"
 import {isIP} from "node:net"
+import {Readable, Transform} from "node:stream"
+import {pipeline} from "node:stream/promises"
 import {fetch as undiciFetch, ProxyAgent, Socks5ProxyAgent, type Dispatcher} from "undici"
 import {CommandError} from "./errors"
 
@@ -153,16 +155,18 @@ export class Http {
       return undefined
     }
     let bytes = 0
-    const out = createWriteStream(filePath)
-    try {
-      for await (const chunk of (res.body ?? []) as AsyncIterable<Uint8Array>) {
+    const counter = new Transform({
+      transform(chunk: Buffer, _encoding, callback) {
         bytes += chunk.byteLength
-        if (bytes > maxBytes) throw new HttpError(`${service}: the file is too big (over ${Math.round(maxBytes / 1048576)} MB).`)
-        if (!out.write(chunk)) await new Promise((r) => out.once("drain", r))
-      }
-      await new Promise<void>((resolve, reject) => out.end((e?: Error | null) => (e ? reject(e) : resolve())))
+        if (bytes > maxBytes) callback(new HttpError(`${service}: the file is too big (over ${Math.round(maxBytes / 1048576)} MB).`))
+        else callback(null, chunk)
+      },
+    })
+    try {
+      if (!res.body) throw new HttpError(`${service} returned an empty response.`)
+      await pipeline(Readable.fromWeb(res.body as any), counter, createWriteStream(filePath))
     } catch (e) {
-      out.destroy()
+      counter.destroy()
       await rm(filePath, {force: true}).catch(() => undefined)
       if (e instanceof HttpError) throw e
       throw this.networkError(e, service, timeoutMs)

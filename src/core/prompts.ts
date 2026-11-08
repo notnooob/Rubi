@@ -23,6 +23,7 @@ export class Prompts {
 
   /** Key for a user in a chat: `${chatKey}|${senderKey}`. */
   wait(key: string, accept: (text: string) => PromptVerdict, timeoutMs: number, signal?: AbortSignal): Promise<PromptResult> {
+    if (signal?.aborted) return Promise.resolve({status: "cancel"})
     // a newer prompt for the same user replaces the old one
     this.waiters.get(key)?.finish({status: "cancel"})
     return new Promise((resolve) => {

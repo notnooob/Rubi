@@ -59,6 +59,10 @@ export class Rubi implements Runtime {
   private _messenger: Messenger | undefined
   private _data: ChatData | undefined
   private dispatcher: Dispatcher | undefined
+
+  get activeCommands(): number {
+    return this.dispatcher?.activeCount ?? 0
+  }
   private stopping: Promise<void> | undefined
   private releaseLock: (() => void) | undefined
 
@@ -149,10 +153,12 @@ export class Rubi implements Runtime {
   stop(reason = "shutdown"): Promise<void> {
     this.stopping ??= (async () => {
       this.log.info(`stopping (${reason})…`)
-      await this.dispatcher?.drain(10_000)
+      this.interactions.stop()
       this.scheduler.stop()
+      await this.dispatcher?.drain(10_000)
+      await this.interactions.drain(5_000)
+      await this.scheduler.drain(5_000)
       this.store.flush()
-      this.releaseLock?.()
       if (this._chat) {
         try {
           await this._chat.stopChat()
@@ -165,6 +171,7 @@ export class Rubi implements Runtime {
           this.log.warn("close failed:", describeError(e))
         }
       }
+      this.releaseLock?.()
       this.log.info("stopped.")
     })()
     return this.stopping

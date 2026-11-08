@@ -12,5 +12,6 @@ export default defineCommand({
   hidden: true,
   menu: false,
   cooldown: 0,
+  args: [{name: "id", type: "string", description: "Confirmation id", required: false}],
   run: () => "🤷 There's nothing waiting for your confirmation (it may have timed out).",
 })

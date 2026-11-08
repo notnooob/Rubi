@@ -10,9 +10,11 @@ import type {ContactSettings, GroupSettings, ScopedData} from "./data"
 import {CommandError, ScopeError, UsageError} from "./errors"
 import type {Http} from "./http"
 import type {Logger} from "./logger"
+import {MAX_TEXT_BYTES, splitText} from "./messages"
 import type {BotMessage, Content, LiveMessage, SendOptions} from "./messages"
 import {isActiveMember, permissionRole, roleAtLeast, type Permission} from "./permissions"
 import type {Runtime} from "./runtime"
+import {newId} from "./scheduler"
 
 /** Who sent the command. */
 export interface Sender {
@@ -285,17 +287,19 @@ export class CommandContext<A = Record<string, unknown>> {
   async awaitReply(prompt?: string, opts: {timeoutMs?: number} = {}): Promise<string | undefined> {
     this.ensureActive()
     const timeoutMs = opts.timeoutMs ?? 60_000
+    const promptId = newId()
     if (prompt) {
-      await this.rt.messenger.send(this.ref, `${prompt}\n${fmt.italic(`Reply within ${fmt.duration(timeoutMs)}, or send ${this.ui.cmd("cancel")}.`)}`, {
+      await this.rt.messenger.send(this.ref, `${prompt}\n${fmt.italic(`Reply within ${fmt.duration(timeoutMs)}, or send ${this.ui.cmd("cancel", promptId)}.`)}`, {
         quote: this.itemId,
       })
+      if (this.signal.aborted) return undefined
     }
     const p = this.config.prefix
     const r = await this.rt.prompts.wait(
       this.promptKey,
       (text) => {
         const t = text.trim().toLowerCase()
-        if (t === `${p}cancel`) return "cancel"
+        if (t === `${p}cancel ${promptId}`) return "cancel"
         return t.startsWith(p) ? "skip" : "take"
       },
       timeoutMs,
@@ -312,14 +316,19 @@ export class CommandContext<A = Record<string, unknown>> {
     this.ensureActive()
     const timeoutMs = opts.timeoutMs ?? 60_000
     const p = this.config.prefix
-    const buttons = this.ui.buttons([this.ui.button("✅", "confirm", undefined, {important: true}), this.ui.button("✖", "cancel", undefined, {important: true})], "    ")
+    const promptId = newId()
+    const buttons = this.ui.buttons([this.ui.button("✅", "confirm", promptId, {important: true}), this.ui.button("✖", "cancel", promptId, {important: true})], "    ")
     const msg = await this.rt.messenger.send(
       this.ref,
       `${question}\n\n${buttons}\n${fmt.italic(`Only ${this.sender.displayName} can answer · ${fmt.duration(timeoutMs)}`)}`,
       {quote: this.itemId, mentions: this.mentionsFor()}
     )
-    const yes = new Set([`${p}confirm`, `${p}yes`, "yes", "y"])
-    const no = new Set([`${p}cancel`, `${p}no`, "no", "n"])
+    if (this.signal.aborted) {
+      await msg.edit(`${question}\n\n${fmt.italic("✖ Cancelled.")}`, this.mentionsFor()).catch(() => undefined)
+      return false
+    }
+    const yes = new Set([`${p}confirm ${promptId}`, `${p}yes ${promptId}`, `yes ${promptId}`, `y ${promptId}`, `${p}confirm`, `${p}yes`, "yes", "y"])
+    const no = new Set([`${p}cancel ${promptId}`, `${p}no ${promptId}`, `no ${promptId}`, `n ${promptId}`, `${p}cancel`, `${p}no`, "no", "n"])
     const r = await this.rt.prompts.wait(
       this.promptKey,
       (text) => {
@@ -412,7 +421,13 @@ export class CommandContext<A = Record<string, unknown>> {
     const d = this.deferred
     if (d && !d.finished) {
       try {
-        await d.finish(content, mentions)
+        if (typeof content === "string" && Buffer.byteLength(content) > MAX_TEXT_BYTES) {
+          const parts = splitText(content)
+          await d.finish(parts[0]!, mentions)
+          for (const part of parts.slice(1)) await this.rt.messenger.send(this.ref, part, {quote: this.itemId, mentions})
+        } else {
+          await d.finish(content, mentions)
+        }
         this.replied = true
         return d
       } catch (e) {

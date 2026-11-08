@@ -57,7 +57,13 @@ export class Pages {
     const ui = makeUi(set.tappable, set.prefix)
     const total = this.pageCount(set)
     const p = Math.min(Math.max(1, page), total)
-    const slice = set.items.slice((p - 1) * set.perPage, p * set.perPage)
+    const source = set.items.slice((p - 1) * set.perPage, p * set.perPage)
+    const slice: string[] = []
+    for (const item of source) {
+      const candidate = slice.length ? `${slice.join("\n")}\n${item}` : item
+      if (Buffer.byteLength(candidate) > 9_500 && slice.length) break
+      slice.push(Buffer.byteLength(item) > 9_500 ? item.slice(0, 9_400) + "…" : item)
+    }
     const nav =
       total > 1
         ? [
