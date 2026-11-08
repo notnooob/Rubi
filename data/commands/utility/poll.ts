@@ -64,7 +64,7 @@ defineInteraction<PollState>("poll", {
   },
   onButton(ix, args, ctx) {
     if (ix.state.closed) return {reply: "This poll is closed."}
-    const n = Number(args[0]?.replace(/,/g, ""))
+    const n = Number(args[0])
     if (!Number.isInteger(n) || n < 1 || n > ix.state.options.length) return {reply: `Pick 1–${ix.state.options.length}.`}
     const key = ctx.sender.key
     // tapping your current choice again removes your vote

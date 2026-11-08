@@ -33,10 +33,12 @@ export default defineCommand({
   timeout: 300,
   async run(ctx) {
     const quoted = ctx.item.chatItem.quotedItem?.content.text
-    const raw = ctx.args.link?.trim() ?? ""
-    const noMedia = /-$/.test(raw)
-    const input = noMedia ? raw.replace(/-$/, "").trim() : raw
-    const link = input ? parseXLink(input.split(/\s+/)[0]!) : quoted ? findXLink(quoted) : undefined
+    const parts = ctx.rawArgs.trim().split(/\s+/).filter(Boolean)
+    const noMedia = parts.at(-1) === "-" || /-$/.test(parts[0] ?? "")
+    if (parts.at(-1) === "-") parts.pop()
+    if (parts.length > 1) return ctx.usageError("Give one X post link, optionally followed by `-` to skip attachments.")
+    const input = noMedia ? (parts[0] ?? "").replace(/-$/, "") : parts[0] ?? ""
+    const link = input ? parseXLink(input) : quoted ? findXLink(quoted) : undefined
     if (!link) {
       return ctx.usageError(input ? "That isn't a link to a post on X." : "Reply to a message containing an X post link, or include the link after /x.")
     }

@@ -21,11 +21,22 @@ describe("X links", () => {
     assert.equal(parseXLink("https://x.com/jack"), undefined)
     assert.equal(parseXLink("https://example.com/jack/status/20"), undefined)
     assert.equal(parseXLink("hello"), undefined)
+    assert.deepEqual(parseXLink("<https://x.com/jack/status/20>."), {user: "jack", id: "20"})
   })
   it("finds a status URL inside a replied-to message", () => {
     assert.deepEqual(findXLink("Have you seen https://x.com/jack/status/20?s=20?"), {user: "jack", id: "20"})
     assert.equal(findXLink("https://x.com/jack"), undefined)
     assert.equal(findXLink("https://example.com/jack/status/20"), undefined)
+  })
+  it("normalizes punctuation and wrappers identically for explicit links", async () => {
+    const h = makeHarness()
+    fakeX(h, {"20": photos()})
+    await h.receive(dm("/x <https://x.com/jack/status/20>."))
+    await untilFinal(h)
+    assert.match(h.chat.sent.find((s) => s.kind === "update" && !s.live)!.text!, /🌐 https:\/\/x\.com\/777pb_/)
+    await h.receive(dm("/x https://x.com/jack/status/20?s=1 -", {contactId: 8}))
+    await untilFinal(h)
+    assert.match(h.chat.sent.filter((s) => s.kind === "update" && !s.live).at(-1)!.text!, /available · not downloaded/)
   })
 })
 

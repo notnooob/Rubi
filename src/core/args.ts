@@ -1,5 +1,6 @@
 import type {T} from "@simplex-chat/types"
 import {UsageError} from "./errors"
+import {parseNumeric} from "../util/number"
 
 /**
  * Typed command arguments.
@@ -136,8 +137,8 @@ async function convert(def: ArgDef, v: string, resolveMember: MemberResolver): P
       return checkChoices(def, v)
     case "integer":
     case "number": {
-      const num = Number(v.replace(/[,_]/g, ""))
-      if (!Number.isFinite(num) || (def.type === "integer" && !Number.isInteger(num))) {
+      const num = parseNumeric(v)
+      if (num === undefined || (def.type === "integer" && !Number.isInteger(num))) {
         throw new UsageError(`${argLabel(def)} must be ${def.type === "integer" ? "a whole number" : "a number"}, got "${v}".`)
       }
       if (def.min !== undefined && num < def.min) throw new UsageError(`${argLabel(def)} must be at least ${def.min}.`)

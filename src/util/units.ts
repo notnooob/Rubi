@@ -205,14 +205,15 @@ export function convertUnits(value: number, fromInput: string, toInput: string):
   const to = findUnit(toInput)
   if (!to) throw new UnitError(`Unknown unit "${toInput}". Try /convert units.`)
   if (from.category !== to.category) throw new UnitError(`Can't convert ${from.symbol} (${from.category}) to ${to.symbol} (${to.category}). Choose two units from the same category.`)
+  if (from === to) return {value: cleanZero(value), from, to, category: from.category}
   const base = from.toBase ? from.toBase(value) : value * from.factor!
   const result = to.fromBase ? to.fromBase(base) : base / to.factor!
   if (!Number.isFinite(result)) throw new UnitError("That conversion is outside the supported numeric range.")
-  return {value: cleanZero(result), from, to, category: from.category}
+  return {value: from.category === "temperature" && Math.abs(result) < 1e-12 ? 0 : cleanZero(result), from, to, category: from.category}
 }
 
 function cleanZero(value: number): number {
-  return Object.is(value, -0) || Math.abs(value) < 1e-12 ? 0 : value
+  return Object.is(value, -0) ? 0 : value
 }
 
 /** Thousands separators, up to 12 significant digits, and exponential notation only at extremes. */

@@ -29,6 +29,7 @@ describe("reddit links", () => {
     assert.equal(parseRedditLink("https://example.com/r/x/comments/17snc7e"), undefined)
     assert.equal(parseRedditLink("https://www.reddit.com/r/pics/"), undefined)
     assert.equal(parseRedditLink("not a link"), undefined)
+    assert.deepEqual(parseRedditLink("<https://redd.it/17snc7e>."), {postId: "17snc7e"})
   })
   it("finds a post URL inside a replied-to message", () => {
     assert.deepEqual(findRedditLink("Look at this: https://www.reddit.com/r/running/comments/17snc7e/achievements/."), {
@@ -37,6 +38,16 @@ describe("reddit links", () => {
     })
     assert.deepEqual(findRedditLink("not a post: https://www.reddit.com/r/pics/"), undefined)
     assert.equal(findRedditLink("https://example.com/r/pics/comments/abc123"), undefined)
+  })
+  it("normalizes punctuation and wrappers identically for explicit links", async () => {
+    const h = makeHarness()
+    fakeReddit(h, {posts: [post()]})
+    await h.receive(dm("/reddit <https://www.reddit.com/r/pics/comments/abc123/a_b/>."))
+    await untilFinal(h)
+    assert.match(h.chat.sent.find((s) => s.kind === "update" && !s.live)!.text!, /# A & B/)
+    await h.receive(dm("/reddit https://redd.it/abc123. -", {contactId: 8}))
+    await untilFinal(h)
+    assert.match(h.chat.sent.filter((s) => s.kind === "update" && !s.live).at(-1)!.text!, /# A & B/)
   })
 })
 
@@ -299,6 +310,16 @@ describe("/reddit", () => {
     const final = h.chat.sent.find((s) => s.kind === "update" && !s.live)!
     assert.match(final.text!, /🔞 Media from NSFW posts is only sent in DMs\./)
     assert.equal(downloads.length, 0)
+  })
+
+  it("blocks media from an NSFW crosspost source in groups", async () => {
+    const h = makeHarness()
+    const parent = post({...gallery(), over_18: true})
+    fakeReddit(h, {posts: [post({crosspost_parent_list: [parent], is_self: false, over_18: false})]})
+    await h.receive(groupMsg("/reddit abc123"))
+    await untilFinal(h)
+    assert.match(h.chat.sent.find((s) => s.kind === "update" && !s.live)!.text!, /NSFW posts is only sent in DMs/)
+    assert.equal(h.chat.sent.filter((s) => s.file).length, 0)
   })
 
   it("explains bad links and missing posts", async () => {

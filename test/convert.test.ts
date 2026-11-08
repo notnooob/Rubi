@@ -110,6 +110,16 @@ describe("unit conversion", () => {
     assert.throws(() => convertUnits(1, "m", "kg"), /Can't convert m \(length\) to kg \(mass\)/)
     assert.throws(() => convertUnits(Infinity, "m", "ft"), /finite number/)
   })
+
+  it("preserves tiny nonzero values and finite identity conversions", () => {
+    const electronVolt = convertUnits(1, "eV", "J").value
+    const petabyte = convertUnits(1, "B", "PB").value
+    const nanoseconds = convertUnits(1, "ns", "h").value
+    assert.ok(electronVolt > 0 && electronVolt < 1e-18)
+    assert.ok(petabyte > 0 && petabyte < 1e-14)
+    assert.ok(nanoseconds > 0 && nanoseconds < 1e-12)
+    assert.equal(convertUnits(1e308, "m", "m").value, 1e308)
+  })
 })
 
 describe("unit number formatting and reference", () => {
@@ -184,6 +194,9 @@ describe("/convert command", () => {
     assert.deepEqual(parseConversion("2 imperial gallons L"), {amount: 2, from: "imperial gallons", to: "L"})
     assert.deepEqual(parseConversion("10 km→mi"), {amount: 10, from: "km", to: "mi"})
     assert.deepEqual(parseConversion("-40 degrees F C"), {amount: -40, from: "degrees F", to: "C"})
+    assert.deepEqual(parseConversion("12 in cm"), {amount: 12, from: "in", to: "cm"})
+    assert.deepEqual(parseConversion("12 in to cm"), {amount: 12, from: "in", to: "cm"})
+    assert.deepEqual(parseConversion("2 fl oz in mL"), {amount: 2, from: "fl oz", to: "mL"})
     assert.equal(parseConversion("NaN m ft"), undefined)
     assert.equal(parseConversion("Infinity m ft"), undefined)
     assert.equal(parseConversion("1e999 m ft"), undefined)

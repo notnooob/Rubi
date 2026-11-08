@@ -1,5 +1,5 @@
 import {randomInt} from "node:crypto"
-import {defineCommand, fmt, HttpError} from "../../../src/sdk"
+import {defineCommand, fmt, HttpError, parseNumeric} from "../../../src/sdk"
 
 interface Comic {
   num: number
@@ -30,7 +30,7 @@ export default defineCommand({
         let n = randomInt(1, latest.num + 1)
         if (n === 404) n = 405 // xkcd 404 is famously missing
         c = await get(n)
-      } else if (/^[\d,]+$/.test(which)) c = await get(Number(which.replace(/,/g, "")))
+      } else if (parseNumeric(which) !== undefined && Number.isInteger(parseNumeric(which))) c = await get(parseNumeric(which)!)
       else return ctx.usageError("Use latest, random, or a comic number.")
     } catch (e) {
       if (e instanceof HttpError && e.status === 404) return ctx.fail("There's no xkcd with that number.")

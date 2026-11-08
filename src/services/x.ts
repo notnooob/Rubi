@@ -22,9 +22,13 @@ export interface XLink {
 
 const HOSTS = /^(?:www\.|mobile\.|m\.)?(?:x|twitter|fxtwitter|vxtwitter|fixupx|fixvx|twittpr|nitter)\.(?:com|net)$/i
 
+export function normalizeXLinkInput(input: string): string {
+  return input.trim().replace(/^[<([{]+/, "").replace(/[>\])}.,!?;:'"]+$/, "")
+}
+
 /** https://x.com/<user>/status/<id>, twitter.com, mobile links, /i/web/status/<id>, mirrors like fxtwitter.com. */
 export function parseXLink(input: string): XLink | undefined {
-  const raw = input.trim().replace(/^<|>$/g, "")
+  const raw = normalizeXLinkInput(input)
   let u: URL
   try {
     u = new URL(/^[a-z]+:\/\//i.test(raw) ? raw : `https://${raw}`)
@@ -41,7 +45,7 @@ export function parseXLink(input: string): XLink | undefined {
 export function findXLink(text: string): XLink | undefined {
   const urls = text.match(/\b(?:https?:\/\/)?(?:[\w-]+\.)*(?:x|twitter|fxtwitter|vxtwitter|fixupx|fixvx|twittpr|nitter)\.(?:com|net)\/[^\s<>"']*/gi) ?? []
   for (const url of urls) {
-    const link = parseXLink(url.replace(/[)\],.!?;:]+$/g, ""))
+    const link = parseXLink(url)
     if (link) return link
   }
   return undefined

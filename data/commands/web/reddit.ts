@@ -47,10 +47,12 @@ export default defineCommand({
   timeout: 300,
   async run(ctx) {
     const quoted = ctx.item.chatItem.quotedItem?.content.text
-    const raw = ctx.args.link?.trim() ?? ""
-    const noMedia = /-$/.test(raw)
-    const input = noMedia ? raw.replace(/-$/, "").trim() : raw
-    const link = input ? parseRedditLink(input.split(/\s+/)[0]!) : quoted ? findRedditLink(quoted) : undefined
+    const parts = ctx.rawArgs.trim().split(/\s+/).filter(Boolean)
+    const noMedia = parts.at(-1) === "-" || /-$/.test(parts[0] ?? "")
+    if (parts.at(-1) === "-") parts.pop()
+    if (parts.length > 1) return ctx.usageError("Give one Reddit link, optionally followed by `-` to skip attachments.")
+    const input = noMedia ? (parts[0] ?? "").replace(/-$/, "") : parts[0] ?? ""
+    const link = input ? parseRedditLink(input) : quoted ? findRedditLink(quoted) : undefined
     if (!link) {
       return ctx.usageError(input ? "That isn't a Reddit post link." : "Reply to a message containing a Reddit post link, or include the link after /reddit.")
     }
@@ -72,7 +74,9 @@ export default defineCommand({
     const comment = commentId ? await fetchComment(ctx.http, commentId).catch(() => undefined) : undefined
 
     const media = postMedia(post)
-    const blocked = media.length ? (post.over_18 && ctx.isGroup && !ctx.isBusiness ? "🔞 Media from NSFW posts is only sent in DMs." : attachmentsBlocked(ctx)) : undefined
+    const mediaSource = post.crosspost_parent_list?.[0]
+    const sensitive = !!post.over_18 || !!mediaSource?.over_18
+    const blocked = media.length ? (sensitive && ctx.isGroup && !ctx.isBusiness ? "🔞 Media from NSFW posts is only sent in DMs." : attachmentsBlocked(ctx)) : undefined
     const wanted = blocked || noMedia ? [] : media.slice(0, MAX_ATTACHMENTS)
     const body = renderPost(post, comment, media)
     // the post, then (at the bottom) its stats, what's attached, notes and the link

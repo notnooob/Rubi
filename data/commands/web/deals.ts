@@ -1,5 +1,5 @@
-import {attachmentsBlocked, defineCommand, thumbnail, type CommandContext} from "../../../src/sdk"
-import {fetchGameDeals, renderGameDeals} from "../../../src/services/cheapshark"
+import {attachmentsBlocked, defineCommand, fmt, thumbnail, type CommandContext} from "../../../src/sdk"
+import {fetchGameDeals, renderGameDealsChunks} from "../../../src/services/cheapshark"
 
 export default defineCommand({
   name: "deals",
@@ -14,12 +14,21 @@ export default defineCommand({
   async run(ctx) {
     const result = await fetchGameDeals(ctx.http, ctx.args.title)
     if (!result) return ctx.fail(`I couldn't find a game called "${ctx.args.title.trim()}" on CheapShark.`)
+    if ("candidates" in result) {
+      return fmt.lines(
+        `🎮 ${fmt.bold("Several games match")}`,
+        ...result.candidates.map((g) => `• ${g.external} — ${ctx.ui.cmd("deals", `id ${g.gameID}`)}`),
+        fmt.italic("Choose one of the titles above.")
+      )
+    }
 
-    const caption = renderGameDeals(result.game, result.stores)
+    const chunks = renderGameDealsChunks(result.game, result.stores)
+    const caption = chunks[0]!
     const image = await gameThumbnail(ctx, result.game.info.thumb)
     // replyImage deletes the text-only live placeholder and sends one image message with this full caption.
     if (image) await ctx.replyImage(image, caption)
-    else return caption
+    else await ctx.reply(caption)
+    for (const chunk of chunks.slice(1)) await ctx.send(chunk)
   },
 })
 

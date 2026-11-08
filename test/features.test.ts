@@ -38,7 +38,7 @@ describe("time parsing", () => {
     assert.equal(parseDuration("1h30m"), 5_400_000)
     assert.equal(parseDuration("2 days 3h"), 2 * 86_400_000 + 3 * 3_600_000)
     assert.equal(parseDuration("1,000s"), 1_000_000)
-    assert.equal(parseDuration("1,5h 30m"), 1.5 * 3_600_000 + 30 * 60_000)
+    assert.equal(parseDuration("1,5h 30m"), undefined, "commas are grouping separators, not decimal separators")
     assert.equal(parseDuration("1h,30m"), 5_400_000)
     assert.equal(parseDuration("soon"), undefined)
     assert.equal(parseDuration("10 apples"), undefined)
@@ -223,14 +223,19 @@ describe("confirmations", () => {
     h.deliver(groupMsg("/kick @'Jo Do' spam", {role: T.GroupMemberRole.Admin, memberId: 2}))
     await sleep(40)
     // in a group without a command menu the important buttons show as code
-    assert.match(h.chat.last()!.text!, /Remove @'Jo Do' from the group\?[\s\S]*✅ `\/confirm` {4}✖ `\/cancel`/)
+    const prompt = h.chat.last()!.text!
+    const promptId = prompt.match(/`\/confirm ([0-9a-f]+)`/)?.[1]
+    assert.ok(promptId, prompt)
+    assert.match(prompt, new RegExp(`Remove @'Jo Do' from the group\\?`))
+    assert.ok(prompt.includes(`✅ \`/confirm ${promptId}\``))
+    assert.ok(prompt.includes(`✖ \`/cancel ${promptId}\``))
     // someone else's /confirm doesn't count (deliver, not receive: /kick is still running, waiting)
-    h.deliver(groupMsg("/confirm", {memberId: 7, name: "eve"}))
+    h.deliver(groupMsg(`/confirm ${promptId}`, {memberId: 7, name: "eve"}))
     await sleep(60)
     assert.match(h.chat.last()!.text!, /nothing waiting/)
     assert.equal(h.chat.calls.filter((c) => c[0] === "apiRemoveMembers").length, 0)
     // the asker confirms
-    await h.receive(groupMsg("/confirm", {role: T.GroupMemberRole.Admin, memberId: 2}))
+    await h.receive(groupMsg(`/confirm ${promptId}`, {role: T.GroupMemberRole.Admin, memberId: 2}))
     assert.deepEqual(h.chat.calls.find((c) => c[0] === "apiRemoveMembers"), ["apiRemoveMembers", 5, [3]])
     assert.match(h.chat.last()!.text!, /Jo Do\* was removed by bob/)
     assert.ok(h.chat.texts().some((t) => /✅ Confirmed/.test(t)), "question is edited with the outcome")

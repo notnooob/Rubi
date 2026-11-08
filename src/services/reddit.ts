@@ -36,12 +36,16 @@ export type RedditLink = {postId: string; commentId?: string} | {share: string}
 
 const ID = "[a-z0-9]{4,12}"
 
+export function normalizeRedditLinkInput(input: string): string {
+  return input.trim().replace(/^[<([{]+/, "").replace(/[>\])}.,!?;:'"]+$/, "")
+}
+
 /**
  * Accepts post URLs (www/old/new/m/np.reddit.com, with or without https://), redd.it/<id>, /gallery/<id>,
  * comment permalinks, share links (/r/<sub>/s/<token>, /u/<name>/s/<token>), "t3_<id>" or a bare id.
  */
 export function parseRedditLink(input: string): RedditLink | undefined {
-  const raw = input.trim().replace(/^<|>$/g, "")
+  const raw = normalizeRedditLinkInput(input)
   const bare = raw.match(new RegExp(`^(?:t3_)?(${ID})$`, "i"))
   if (bare && !/^https?:/i.test(raw)) return {postId: bare[1]!.toLowerCase()}
 
@@ -71,7 +75,7 @@ export function parseRedditLink(input: string): RedditLink | undefined {
 export function findRedditLink(text: string): RedditLink | undefined {
   const urls = text.match(/\b(?:https?:\/\/)?(?:[\w-]+\.)*(?:reddit\.com|redd\.it)\/[^\s<>"']*/gi) ?? []
   for (const url of urls) {
-    const link = parseRedditLink(url.replace(/[)\],.!?;:]+$/g, ""))
+    const link = parseRedditLink(url)
     if (link) return link
   }
   return undefined

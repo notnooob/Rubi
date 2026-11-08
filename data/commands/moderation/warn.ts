@@ -1,4 +1,4 @@
-import {assertCanModerate, defineCommand, fmt, moderate, roleAtLeast, T} from "../../../src/sdk"
+import {assertCanModerate, defineCommand, fmt, moderate, parseNumeric, roleAtLeast, T} from "../../../src/sdk"
 
 export default defineCommand({
   name: "warn",
@@ -15,8 +15,8 @@ export default defineCommand({
   async run(ctx) {
     if (ctx.args.member.toLowerCase() === "limit") {
       if (!ctx.can("admin")) return ctx.fail("Only admins can change the warning limit.")
-      const n = Number(ctx.args.reason?.replace(/,/g, ""))
-      if (!Number.isInteger(n) || n < 0 || n > 50) return ctx.usageError("Give a number from 0 (never remove) to 50.")
+      const n = parseNumeric(ctx.args.reason ?? "")
+      if (n === undefined || !Number.isInteger(n) || n < 0 || n > 50) return ctx.usageError("Give a number from 0 (never remove) to 50.")
       await ctx.groupData.update((s) => {
         s.warnLimit = n
       })

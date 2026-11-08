@@ -47,14 +47,22 @@ export interface CheapSharkStore {
 }
 
 /** Search by title, prefer an exact (case-insensitive) match, then fetch its deals and the store names. */
-export async function fetchGameDeals(http: Http, title: string): Promise<{game: CheapSharkGame; stores: Map<string, string>} | undefined> {
-  const found = await http.json<CheapSharkSearchResult[]>(`${CHEAPSHARK_API}/games`, {service: "CheapShark", query: {title: title.trim()}})
-  const exact = found.find((g) => g.external.toLowerCase() === title.trim().toLowerCase())
-  const match = exact ?? found[0]
-  if (!match) return undefined
+export type CheapSharkLookup =
+  | {game: CheapSharkGame; stores: Map<string, string>}
+  | {candidates: CheapSharkSearchResult[]}
 
+export async function fetchGameDeals(http: Http, title: string): Promise<CheapSharkLookup | undefined> {
+  const explicit = title.trim().match(/^id\s*[:#]?\s*(\d+)$/i)
+  const found = explicit
+    ? []
+    : await http.json<CheapSharkSearchResult[]>(`${CHEAPSHARK_API}/games`, {service: "CheapShark", query: {title: title.trim()}})
+  const exacts = explicit ? [] : found.filter((g) => g.external.toLowerCase() === title.trim().toLowerCase())
+  const match = explicit ? {gameID: explicit[1]!, external: title.trim(), steamAppID: null, thumb: undefined} : exacts.length === 1 ? exacts[0] : undefined
+  if (!match && (exacts.length > 1 || found.length > 1)) return {candidates: (exacts.length > 1 ? exacts : found).slice(0, 8)}
+  const selected = match ?? found[0]
+  if (!selected) return undefined
   const [game, storeList] = await Promise.all([
-    http.json<CheapSharkGame>(`${CHEAPSHARK_API}/games`, {service: "CheapShark", query: {id: match.gameID}}),
+    http.json<CheapSharkGame>(`${CHEAPSHARK_API}/games`, {service: "CheapShark", query: {id: selected.gameID}}),
     http.json<CheapSharkStore[]>(`${CHEAPSHARK_API}/stores`, {service: "CheapShark"}),
   ])
   return {game, stores: new Map(storeList.map((s) => [s.storeID, s.storeName]))}
@@ -78,6 +86,10 @@ const price = (value: string): string => `$${value}`
 
 /** Full game details in one compact SimpleX caption (no review/rating fields are supplied by these endpoints). */
 export function renderGameDeals(game: CheapSharkGame, stores: Map<string, string>): string {
+  return renderGameDealsChunks(game, stores).join("\n\n")
+}
+
+export function renderGameDealsChunks(game: CheapSharkGame, stores: Map<string, string>): string[] {
   const deals = [...game.deals].sort((a, b) => Number(a.price) - Number(b.price) || storeName(a, stores).localeCompare(storeName(b, stores)))
   const best = new Set(bestCurrentDeals(deals, stores))
   const bestNames = [...best].map((d) => storeName(d, stores))
@@ -99,22 +111,13 @@ export function renderGameDeals(game: CheapSharkGame, stores: Map<string, string
     const discount = Number.isFinite(savings) ? ` · ${fmt.num(savings)}% off` : ""
     return `${best.has(d) ? "🏆 " : "• "}${storeName(d, stores)} — ${price(d.price)} / ${price(d.retailPrice)} retail${discount}\n${cheapSharkDealUrl(d.dealID)}`
   })
-  return fitCaption(fmt.lines(...lines, ...dealLines))
-}
-
-/**
- * Images can't be split by Messenger. Ordinary CheapShark responses fit comfortably; if an unusual response
- * does not, keep complete deal lines up to the protocol budget rather than imposing a fixed deal-count limit.
- */
-function fitCaption(text: string): string {
-  if (Buffer.byteLength(text) <= MAX_CAPTION_BYTES) return text
-  const lines = text.split("\n")
-  const suffix = "… More deals are available on CheapShark."
-  let out = ""
-  for (const line of lines) {
-    const next = out ? `${out}\n${line}` : line
-    if (Buffer.byteLength(`${next}\n${suffix}`) > MAX_CAPTION_BYTES) break
-    out = next
+  const header = fmt.lines(...lines)
+  const chunks: string[] = [header]
+  for (const block of dealLines) {
+    const current = chunks[chunks.length - 1]!
+    const next = current ? `${current}\n\n${block}` : block
+    if (Buffer.byteLength(next) <= MAX_CAPTION_BYTES) chunks[chunks.length - 1] = next
+    else chunks.push(block)
   }
-  return `${out}\n${suffix}`
+  return chunks
 }

@@ -30,10 +30,12 @@ interface WyrState {
   options: [string, string]
   /** userKey → option index; each person's latest choice replaces their previous one. */
   votes: Record<string, number>
+  sources?: Record<string, "reaction" | "button">
   ownerName: string
   prefix: string
   tappable: boolean
   reactionsOff?: boolean
+  closed?: boolean
 }
 
 function render(ix: Interaction<WyrState>): string {
@@ -44,7 +46,7 @@ function render(ix: Interaction<WyrState>): string {
   const rows = s.options.map((option, i) => {
     const n = counts[i]!
     const pct = total ? Math.round((n / total) * 100) : 0
-    const button = s.tappable ? `  ${ui.button("", "vote", `${ix.id} ${i + 1}`)}` : ""
+    const button = !s.closed && s.tappable ? `  ${ui.button("", "vote", `${ix.id} ${i + 1}`)}` : ""
     return `${EMOJI[i]} ${fmt.bold(option)}\n${fmt.bar(total ? n / total : 0)} ${n} (${pct}%)${button}`
   })
   const how = s.reactionsOff
@@ -59,26 +61,45 @@ function render(ix: Interaction<WyrState>): string {
     "",
     rows.join("\n\n"),
     "",
-    fmt.italic(`${fmt.plural(total, "vote")} · ${how} · you can change your vote · by ${s.ownerName}`)
+    s.closed ? fmt.italic(`Closed · ${fmt.plural(total, "vote")} · by ${s.ownerName}`) : fmt.italic(`${fmt.plural(total, "vote")} · ${how} · you can change your vote · by ${s.ownerName}`),
+    !s.closed && s.tappable ? ui.button("✖ Close", "cancel", ix.id, {important: true}) : undefined
   )
 }
 
 defineInteraction<WyrState>("wyr", {
   onReaction(ix, r) {
+    ix.state.sources ??= {}
     const i = EMOJI.indexOf(normalizeReaction(r.emoji) as (typeof EMOJI)[number])
     if (i < 0) return
-    if (r.added) ix.state.votes[r.userKey] = i
-    else if (ix.state.votes[r.userKey] === i) delete ix.state.votes[r.userKey]
+    if (r.added) {
+      ix.state.votes[r.userKey] = i
+      ix.state.sources[r.userKey] = "reaction"
+    } else if (ix.state.sources[r.userKey] === "reaction" && ix.state.votes[r.userKey] === i) {
+      delete ix.state.votes[r.userKey]
+      delete ix.state.sources[r.userKey]
+    }
     else return
     return render(ix)
   },
   onButton(ix, args, ctx) {
-    const i = Number(args[0]?.replace(/,/g, "")) - 1
+    ix.state.sources ??= {}
+    if (ix.state.closed) return {reply: "This question is closed."}
+    const n = Number(args[0])
+    const i = Number.isInteger(n) ? n - 1 : -1
     if (i !== 0 && i !== 1) return {reply: "Pick option 1 or 2."}
     const key = ctx.sender.key
-    if (ix.state.votes[key] === i) delete ix.state.votes[key]
-    else ix.state.votes[key] = i
+    if (ix.state.votes[key] === i && ix.state.sources[key] === "button") {
+      delete ix.state.votes[key]
+      delete ix.state.sources[key]
+    } else {
+      ix.state.votes[key] = i
+      ix.state.sources[key] = "button"
+    }
     return {text: render(ix), ack: "👍"}
+  },
+  onCancel(ix) {
+    ix.state.closed = true
+    return {text: render(ix), done: true, reply: "✅ Would You Rather closed."}
   },
 })
 
@@ -103,6 +124,7 @@ export default defineCommand({
     const state: WyrState = {
       options,
       votes: {},
+      sources: {},
       ownerName: ctx.sender.displayName,
       prefix: ctx.config.prefix,
       tappable: ctx.ui.tappable,

@@ -17,19 +17,19 @@ const UNITS: Record<string, number> = {
 export function parseDuration(input: string): number | undefined {
   const s = input.trim().toLowerCase()
   if (!s) return undefined
-  // A comma after a duration unit separates parts ("1h,30m"); elsewhere it
-  // belongs to the number ("1,000s", "1,5h").
+  // A comma after a duration unit separates parts ("1h,30m"); numeric commas
+  // use the same conventional grouping rules as other command arguments.
   const normalized = s.replace(/([a-z]),/g, "$1 ")
   let total = 0
   let pos = 0
   while (pos < normalized.length) {
     const separator = normalized.slice(pos).match(/^(?:\s+|and\s+)/)
     if (separator) pos += separator[0].length
-    const m = normalized.slice(pos).match(/^(\d+(?:[.,]\d+)*)\s*([a-z]+)/)
+    const m = normalized.slice(pos).match(/^((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)\s*([a-z]+)/)
     if (!m) return undefined
     const unit = UNITS[m[2]!]
     if (unit === undefined) return undefined
-    const number = m[1]!.replace(/,(\d{1,2})(?!\d)/, ".$1").replace(/,/g, "")
+    const number = m[1]!.replace(/,/g, "")
     total += Number(number) * unit
     pos += m[0].length
   }

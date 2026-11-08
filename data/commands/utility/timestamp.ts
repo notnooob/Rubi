@@ -1,4 +1,4 @@
-import {defineCommand, fmt} from "../../../src/sdk"
+import {defineCommand, fmt, parseNumeric} from "../../../src/sdk"
 
 export default defineCommand({
   name: "timestamp",
@@ -12,9 +12,9 @@ export default defineCommand({
     const v = ctx.args.value?.trim()
     let ms: number
     if (!v) ms = Date.now()
-    else if (/^-?[\d,]+(\.\d+)?$/.test(v)) {
-      const n = v.replace(/,/g, "")
-      ms = n.replace(/^-/, "").split(".")[0]!.length >= 13 ? Number(n) : Number(n) * 1000
+    else if (/^-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?$/.test(v)) {
+      const n = parseNumeric(v)!
+      ms = Math.abs(n).toString().replace(/^-/, "").split(".")[0]!.length >= 13 ? n : n * 1000
     } else ms = Date.parse(v)
     if (!Number.isFinite(ms) || Math.abs(ms) > 8.64e15) return ctx.usageError(`I can't read "${v}" as a time.`)
     const d = new Date(ms)

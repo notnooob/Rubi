@@ -124,4 +124,37 @@ describe("trivia tournament", () => {
     assert.match(h.chat.last()!.text!, /Scores so far:/)
     assert.equal(h.rt.scheduler.list().length, 0)
   })
+
+  it("accepts a difficulty without requiring a round count", async () => {
+    const h = makeHarness()
+    fakeQuestions(h, Array.from({length: 5}, (_, i) => question(`Question ${i + 1}`, "Correct")))
+    await h.receive(groupMsg("/trivia tournament hard", {menu: true}))
+    assert.match(h.chat.texts().at(-1)!, /Round 1\/5/)
+  })
+
+  it("rejects fractional answer buttons", async () => {
+    const h = makeHarness()
+    fakeQuestions(h, [question("Question", "Correct")])
+    await h.receive(groupMsg("/trivia", {menu: true}))
+    const text = h.chat.texts().at(-1)!
+    const id = voteId(text)!
+    await h.receive(groupMsg(`/vote ${id} 1.5`, {memberId: 3, name: "carol"}))
+    assert.match(h.chat.last()!.text!, /Pick one of the answers/)
+  })
+
+  it("allows only the tournament owner to cancel the pending next round", async () => {
+    const h = makeHarness()
+    fakeQuestions(h, Array.from({length: 2}, (_, i) => question(`Q${i}`, "Correct")))
+    await h.receive(groupMsg("/trivia tournament 2", {menu: true, memberId: 2, name: "bob"}))
+    const text = h.chat.texts().at(-1)!
+    const tournamentId = text.match(/trivia cancel ([0-9a-f]+)/)?.[1]
+    assert.ok(tournamentId, text)
+    await runDueJobs(h)
+    assert.ok(h.rt.scheduler.list().some((j) => j.kind === "tournament-next"))
+    await h.receive(groupMsg(`/trivia cancel ${tournamentId}`, {memberId: 3, name: "carol"}))
+    assert.match(h.chat.last()!.text!, /belongs to you/)
+    await h.receive(groupMsg(`/trivia cancel ${tournamentId}`, {memberId: 2, name: "bob", contactId: 99}))
+    assert.match(h.chat.last()!.text!, /Cancelled the trivia tournament/)
+    assert.equal(h.rt.scheduler.list().some((j) => j.kind === "tournament-next"), false)
+  })
 })
