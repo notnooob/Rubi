@@ -14,12 +14,14 @@ export default defineCommand({
   description: "Weather now and the next 3 days: /weather Oslo",
   details: "Data from Open-Meteo (free, no tracking key).",
   category: "Web",
-  args: [{name: "place", type: "text", description: "City or place", required: true}],
+  args: [{name: "place", type: "text", description: "City or place"}],
   examples: ["weather Oslo", "weather New York"],
   live: "🌦 Checking the sky",
   cooldown: 5,
   async run(ctx) {
-    const place = await geocode(ctx.http, ctx.args.place)
+    const query = ctx.args.place?.trim() || (ctx.isDirect ? (await ctx.contactData.get()).defaultWeather : undefined)
+    if (!query) return ctx.usageError("Give a city or place, or set a default with /prefs set weather <place>.")
+    const place = await geocode(ctx.http, query)
     ctx.progress(`🌦 Fetching weather for ${placeLabel(place)}`)
     const w = await ctx.http.json<Forecast>("https://api.open-meteo.com/v1/forecast", {
       service: "Open-Meteo",
@@ -48,7 +50,7 @@ export default defineCommand({
       `Today ${Math.round(w.daily.temperature_2m_min[0]!)}…${Math.round(w.daily.temperature_2m_max[0]!)}°C`,
       "",
       ...days,
-      ctx.ui.button("\n🔁", "weather", ctx.args.place)
+      ctx.ui.button("\n🔁", "weather", query)
     )
   },
 })

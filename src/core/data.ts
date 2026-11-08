@@ -22,11 +22,40 @@ export interface GroupSettings {
   warnings?: Record<string, {name: string; count: number; reasons: string[]; last: number}>
   /** Auto-kick at this many warnings (0 = never). Default 3. */
   warnLimit?: number
+  tasks?: TodoTask[]
+  events?: GroupEvent[]
 }
 
 export interface ContactSettings {
   /** IANA time zone, e.g. "Europe/Berlin" (set by /time). */
   timezone?: string
+  /** Personal defaults used only when a direct-chat command omits a place/country/currency. */
+  defaultWeather?: string
+  defaultCountry?: string
+  defaultCurrency?: string
+  tasks?: TodoTask[]
+}
+
+export interface TodoTask {
+  id: string
+  text: string
+  creatorKey: string
+  creatorName: string
+  assigneeKey?: string
+  assigneeName?: string
+  done?: boolean
+  createdAt: number
+}
+
+export interface GroupEvent {
+  id: string
+  title: string
+  at: number
+  timeZone: string
+  creatorKey: string
+  creatorName: string
+  roster: Record<string, {name: string; status: "yes" | "maybe" | "no"}>
+  canceled?: boolean
 }
 
 const NS = "rubi"

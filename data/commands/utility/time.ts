@@ -7,6 +7,23 @@ function clock(timeZone: string): string {
   return `${fmt.bold(time)} · ${date} ${fmt.italic(`(${utcOffset(timeZone)})`)}`
 }
 
+function futureAt(input: string): string | undefined {
+  const parts = input.split("|").map((s) => s.trim()).filter(Boolean)
+  const instant = parts.shift()
+  if (!instant || !/(?:Z|[+-]\d{2}:?\d{2})$/i.test(instant)) return undefined
+  const at = Date.parse(instant)
+  if (!Number.isFinite(at)) return undefined
+  const zones = parts.length ? parts : ["UTC"]
+  if (zones.some((z) => !isTimeZone(z))) return undefined
+  return fmt.lines(
+    `🕐 ${fmt.bold(new Date(at).toISOString())} · ${fmt.relative(at)}`,
+    ...zones.map((zone) => {
+      const local = new Intl.DateTimeFormat("en-GB", {timeZone: zone, dateStyle: "full", timeStyle: "short"}).format(at)
+      return `🌍 ${fmt.bold(zone)}: ${local} ${fmt.italic(`(${utcOffset(zone, at)})`)}`
+    })
+  )
+}
+
 export default defineCommand({
   name: "time",
   aliases: ["clock", "tz"],
@@ -18,6 +35,11 @@ export default defineCommand({
   examples: ["time Tokyo", "time Europe/Berlin", "time set London"],
   async run(ctx) {
     let q = ctx.args.place?.trim()
+    if (/^at\s+/i.test(q ?? "")) {
+      const result = futureAt(q!.replace(/^at\s+/i, ""))
+      if (!result) return ctx.usageError("Use /time at <ISO instant with Z/offset> | <IANA zone> | <IANA zone>.")
+      return result
+    }
     const saving = /^set\s+/i.test(q ?? "")
     if (saving) {
       if (!ctx.isDirect) return ctx.fail("Save your time zone in a DM with me.")

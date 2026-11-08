@@ -5,8 +5,21 @@ export default defineCommand({
   description: "Bot statistics: usage, memory, jobs",
   category: "Admin",
   permission: "botAdmin",
+  args: [{name: "mode", type: "string", description: "health for runtime diagnostics"}],
   async run(ctx) {
     const {rt} = ctx
+    if (ctx.args.mode?.toLowerCase() === "health") {
+      const store = rt.store.diagnostics()
+      const counts = rt.interactions.counts()
+      return fmt.lines(
+        `🩺 ${fmt.bold("Health")}`,
+        `🧩 Commands running: ${rt.activeCommands ?? "?"}`,
+        `🗓 Jobs running: ${rt.scheduler.runningCount} · failed: ${rt.scheduler.failedCount}`,
+        `🎛 Interactions: ${rt.interactions.activeCount}${Object.keys(counts).length ? ` (${Object.entries(counts).map(([k, n]) => `${k} ${n}`).join(", ")})` : ""}`,
+        `📎 Pending uploads: ${rt.tempFiles.pending}`,
+        `💾 Store: ${store.lastFlushError ? `last error ${store.lastFlushError}` : store.dirty ? "pending flush" : store.lastFlushAt ? `flushed ${fmt.relative(store.lastFlushAt)}` : "no flush yet"}`
+      )
+    }
     const top = [...rt.stats.perCommand.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)
     const mem = process.memoryUsage()
     const mb = (b: number) => `${(b / 1024 / 1024).toFixed(1)} MB`

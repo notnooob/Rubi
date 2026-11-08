@@ -13,13 +13,15 @@ export default defineCommand({
   description: "Upcoming public holidays: /holidays Germany",
   details: "Data from Nager.Date — about 120 countries are covered.",
   category: "Web",
-  args: [{name: "country", type: "text", description: "Country name or code", required: true}],
+  args: [{name: "country", type: "text", description: "Country name or code"}],
   examples: ["holidays Germany", "holidays us"],
   live: "🎉 Checking the calendar",
   cooldown: 3,
   async run(ctx) {
-    const c = findCountry(ctx.args.country)
-    if (!c) return ctx.fail(`I don't know a country called "${ctx.args.country}".`)
+    const query = ctx.args.country?.trim() || (ctx.isDirect ? (await ctx.contactData.get()).defaultCountry : undefined)
+    if (!query) return ctx.usageError("Give a country, or set a default with /prefs set country <country>.")
+    const c = findCountry(query)
+    if (!c) return ctx.fail(`I don't know a country called "${query}".`)
     let list: Holiday[]
     try {
       list = await ctx.http.json<Holiday[]>(`https://date.nager.at/api/v3/NextPublicHolidays/${c.cca2}`, {service: "Nager.Date"})

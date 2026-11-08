@@ -20,7 +20,7 @@ export default defineCommand({
   async run(ctx) {
     const service = "CoinGecko"
     const q = ctx.args.coin.toLowerCase()
-    const vs = (ctx.args.currency ?? "usd").toLowerCase()
+    const vs = (ctx.args.currency ?? (ctx.isDirect ? (await ctx.contactData.get()).defaultCurrency : undefined) ?? "usd").toLowerCase()
     const found = await ctx.http.json<Search>("https://api.coingecko.com/api/v3/search", {service, query: {query: q}})
     // prefer an exact symbol/name match with the best market-cap rank
     const exact = found.coins.filter((c) => c.symbol.toLowerCase() === q || c.id === q || c.name.toLowerCase() === q)
