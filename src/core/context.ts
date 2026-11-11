@@ -284,12 +284,15 @@ export class CommandContext<A = Record<string, unknown>> {
    * Ask the user something and wait for their next message in this chat.
    * Returns the text, or `undefined` on timeout or if they send /cancel. Other commands still work meanwhile.
    */
-  async awaitReply(prompt?: string, opts: {timeoutMs?: number} = {}): Promise<string | undefined> {
+  async awaitReply(
+    prompt?: string,
+    opts: {timeoutMs?: number; accept?: (text: string) => boolean} = {}
+  ): Promise<string | undefined> {
     this.ensureActive()
     const timeoutMs = opts.timeoutMs ?? 60_000
     const promptId = newId()
     if (prompt) {
-      await this.rt.messenger.send(this.ref, `${prompt}\n${fmt.italic(`Reply within ${fmt.duration(timeoutMs)}, or send ${this.ui.cmd("cancel", promptId)}.`)}`, {
+      await this.rt.messenger.send(this.ref, `${prompt}\n${this.ui.cmd("cancel", promptId)}`, {
         quote: this.itemId,
       })
       if (this.signal.aborted) return undefined
@@ -300,7 +303,8 @@ export class CommandContext<A = Record<string, unknown>> {
       (text) => {
         const t = text.trim().toLowerCase()
         if (t === `${p}cancel ${promptId}`) return "cancel"
-        return t.startsWith(p) ? "skip" : "take"
+        if (t.startsWith(p)) return "skip"
+        return opts.accept && !opts.accept(text) ? "skip" : "take"
       },
       timeoutMs,
       this.signal

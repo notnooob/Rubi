@@ -31,14 +31,14 @@ export class Prompts {
       const finish = (r: PromptResult) => {
         if (done) return
         done = true
-        clearTimeout(timer)
+        if (timer) clearTimeout(timer)
         signal?.removeEventListener("abort", onAbort)
         if (this.waiters.get(key) === waiter) this.waiters.delete(key)
         resolve(r)
       }
       const onAbort = () => finish({status: "cancel"})
-      const timer = setTimeout(() => finish({status: "timeout"}), timeoutMs)
-      timer.unref()
+      const timer = timeoutMs > 0 ? setTimeout(() => finish({status: "timeout"}), timeoutMs) : undefined
+      timer?.unref()
       signal?.addEventListener("abort", onAbort, {once: true})
       const waiter: Waiter = {accept, finish}
       this.waiters.set(key, waiter)

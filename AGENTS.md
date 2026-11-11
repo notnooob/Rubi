@@ -242,8 +242,9 @@ Everything below is exported from `src/sdk.ts` and/or available on `ctx` / `rt`.
   **Reactions are limited to 👍 👎 😀 😂 😢 ❤ 🚀 ✅ (no ❤️ variation selector — use `normalizeReaction`), max 3 per user per message.**
 - **Prompts:** `await ctx.confirm("Kick @x?")` shows ✅ /confirm and ✖ /cancel buttons; only the invoker can answer,
   it defaults to a 60s timeout, and the question is edited with the outcome. `await ctx.awaitReply("Question?")` returns the user's next
-  message, or `undefined` on timeout or /cancel. Other commands keep working while one is waiting. Don't combine
-  them with `live: true` (the placeholder would sit there while waiting).
+  message, or `undefined` on timeout or /cancel. The prompt shows the /cancel command on its own line (no timeout text);
+  pass `{timeoutMs: 0}` to wait indefinitely and `{accept: (text) => …}` to ignore messages that don't match.
+  Other commands keep working while one is waiting. Don't combine them with `live: true` (the placeholder would sit there while waiting).
 - **Pagination:** `await ctx.paginate({title, items, perPage})` shows ◀ ▶ `/page` buttons. Pages are in memory for 30 min and
   are bound to their chat.
 - **Attachments from the web:** `/reddit <url>-`, `/x <url>-`, and `/reddit -` / `/r -` / `/x -` in reply to a link
