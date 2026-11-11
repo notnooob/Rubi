@@ -4,11 +4,14 @@ import {fileURLToPath} from "node:url"
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const commandDir = path.join(root, "data", "commands")
+const customDir = path.join(commandDir, "custom") // local, gitignored commands are not part of the documented set
 const files = []
 function walk(dir) {
   for (const entry of readdirSync(dir, {withFileTypes: true})) {
     const full = path.join(dir, entry.name)
-    if (entry.isDirectory()) walk(full)
+    if (entry.isDirectory()) {
+      if (full !== customDir) walk(full)
+    }
     else if (entry.name.endsWith(".ts") && !entry.name.startsWith("_")) files.push(full)
   }
 }

@@ -13,6 +13,7 @@ export const CATEGORIES: readonly {name: string; icon: string; description: stri
   {name: "Groups", icon: "👥", description: "Group features"},
   {name: "Moderation", icon: "🛡", description: "Keep groups tidy (moderators/admins)"},
   {name: "Admin", icon: "⚙️", description: "Bot operator tools"},
+  {name: "Custom", icon: "🧩", description: "Commands added to this copy of Rubi"},
 ]
 
 export const DEFAULT_CATEGORY = "General"

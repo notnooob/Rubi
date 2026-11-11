@@ -10,6 +10,10 @@ storage/
 *.lock
 !package-lock.json
 
+# Your own commands (see data/commands/custom/README.md): never committed
+data/commands/custom/*
+!data/commands/custom/README.md
+
 # Secrets / local config (the documented template stays in the repo)
 .env
 .env.*

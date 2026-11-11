@@ -195,6 +195,8 @@ group and leaves out convenience buttons.
 
 - One command per file in `data/commands/<category>/`. Copy `data/commands/_template.ts` to start a new one;
   `/help`, the app menu and argument checking pick it up automatically.
+- Commands just for your own copy go in `data/commands/custom/`. That folder is gitignored, so they never get committed
+  (see [its README](data/commands/custom/README.md)).
 - `npm run check` runs the typecheck and tests. The tests use a fake chat core, so they need no native library or external network.
 - `npm run docs:sync` mirrors the official SimpleX bot API docs into `docs/`.
 - `npm run avatar` re-renders the profile pictures from `assets/avatar.svg`.

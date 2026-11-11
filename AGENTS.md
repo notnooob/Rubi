@@ -111,6 +111,7 @@ data/
     _template.ts       ← copy-me template with every option (skipped by loader: "_" prefix)
     general/ utility/ web/ fun/ groups/ moderation/ admin/   ← one command per file; folder = category
     system/            ← hidden button targets: vote, page, confirm, cancel
+    custom/            ← YOUR OWN commands, gitignored (only its README.md is tracked); category "Custom"
   events/              ← chat event handlers (auto-loaded, recursive)
     groups.ts          ← auto-join group invitations, greet on join + /groupmenu tip (groupMenuTip)
     members.ts         ← custom /welcome for new members
@@ -290,6 +291,11 @@ Everything below is exported from `src/sdk.ts` and/or available on `ctx` / `rt`.
    The menu syncs to the bot profile on the next start.
 5. Add a test (`test/bot.test.ts` for core behaviour, `test/features.test.ts` for commands) using the harness
    (`makeHarness`, `dm()`, `groupMsg()`, `member()`, `h.react()`, `fakeHttp`), then run `npm run check`.
+
+**Custom commands** (a user's own, for their copy only) go in `data/commands/custom/` (🧩 Custom category). That
+folder is gitignored except its README, and `scripts/check-docs.mjs` skips it, so they're never committed and never
+counted in the README. **Never add built-in commands there, and never commit files from it.** They load like any other
+command, so they're also in the local test registry and name clashes with built-ins fail the load.
 
 Conventions:
 - Lowercase keywords (`[a-z0-9_]`, unicode letters allowed). There are no duplicate names/aliases; the loader rejects clashes.
