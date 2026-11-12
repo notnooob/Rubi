@@ -42,12 +42,30 @@ export function parseDuration(input: string): number | undefined {
 /**
  * Splits a "when" from the start of `input`, for "/remind 10m take a break".
  * Returns the due time (epoch ms) and the rest of the text, or undefined.
- * Clock times ("18:30", "tomorrow 9:00") use `timeZone` (IANA; default: the server's).
+ * - durations: "10m", "in 2 hours", "1h 30m"
+ * - clock times: "18:30", "6pm", "tomorrow 9:00"
+ * - dates (time optional, default 9:00): "dec 24 18:00", "24 december", "2026-12-24 8am", "friday 9:00", "on fri".
+ *   A date without a year that has already passed means next year; a weekday means its next occurrence.
+ * Clock times and dates use `timeZone` (IANA; default: the server's).
  */
 export function parseWhen(input: string, now = Date.now(), timeZone?: string): {at: number; rest: string} | undefined {
   const words = input.trim().split(/\s+/)
   let i = 0
-  if (words[0]?.toLowerCase() === "in") i = 1
+  if (/^(in|on)$/i.test(words[0] ?? "")) i = 1
+
+  const date = parseDate(words, i, now, timeZone)
+  if (date) {
+    const clock = parseClock(words[date.next] ?? "")
+    if (clock === null) return undefined
+    const [h, m] = clock ?? [9, 0]
+    let at = zonedAt(date.y, date.mo, date.d, h, m, timeZone)
+    if (at <= now) {
+      if (date.weekday) at = zonedAt(date.y, date.mo, date.d + 7, h, m, timeZone)
+      else if (date.explicitYear) return undefined
+      else at = zonedAt(date.y + 1, date.mo, date.d, h, m, timeZone)
+    }
+    return {at, rest: words.slice(date.next + (clock ? 1 : 0)).join(" ")}
+  }
 
   // clock time: [today|tomorrow] HH:MM[am|pm]
   let dayOffset = 0
@@ -56,18 +74,13 @@ export function parseWhen(input: string, now = Date.now(), timeZone?: string): {
     dayOffset = words[j]!.toLowerCase() === "tomorrow" ? 1 : 0
     j++
   }
-  // "18:30", "6:30pm", "6pm" (a bare "6" is not a time)
-  const clock = (words[j] ?? "").match(/^(\d{1,2})(?::(\d{2}))?(am|pm)?$/i)
-  if (clock && (clock[2] !== undefined || clock[3] !== undefined)) {
-    let h = Number(clock[1])
-    const min = Number(clock[2] ?? 0)
-    const ampm = clock[3]?.toLowerCase()
-    if (ampm && (h < 1 || h > 12)) return undefined
-    if (ampm === "pm" && h < 12) h += 12
-    if (ampm === "am" && h === 12) h = 0
-    if (h > 23 || min > 59) return undefined
-    let at = zonedTime(now, h, min, dayOffset, timeZone)
-    if (at <= now && dayOffset === 0) at = zonedTime(now, h, min, 1, timeZone)
+  const clock = parseClock(words[j] ?? "")
+  if (clock === null) return undefined
+  if (clock) {
+    const [h, min] = clock
+    const today = todayIn(now, timeZone)
+    let at = zonedAt(today.y, today.mo, today.d + dayOffset, h, min, timeZone)
+    if (at <= now && dayOffset === 0) at = zonedAt(today.y, today.mo, today.d + 1, h, min, timeZone)
     return {at, rest: words.slice(j + 1).join(" ")}
   }
 
@@ -79,35 +92,91 @@ export function parseWhen(input: string, now = Date.now(), timeZone?: string): {
   return undefined
 }
 
+/** "18:30", "6:30pm", "6pm" → [h, m]; undefined if it isn't a clock time (a bare "6" isn't); null if invalid ("25:00"). */
+function parseClock(word: string): [number, number] | undefined | null {
+  const clock = word.match(/^(\d{1,2})(?::(\d{2}))?(am|pm)?$/i)
+  if (!clock || (clock[2] === undefined && clock[3] === undefined)) return undefined
+  let h = Number(clock[1])
+  const min = Number(clock[2] ?? 0)
+  const ampm = clock[3]?.toLowerCase()
+  if (ampm && (h < 1 || h > 12)) return null
+  if (ampm === "pm" && h < 12) h += 12
+  if (ampm === "am" && h === 12) h = 0
+  if (h > 23 || min > 59) return null
+  return [h, min]
+}
+
+const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]
+/** "dec", "december", "sept" → 1–12 */
+function monthIndex(word: string): number | undefined {
+  const w = word.toLowerCase().replace(/[.,]$/, "")
+  if (w.length < 3) return undefined
+  const i = MONTHS.findIndex((m) => m.startsWith(w))
+  return i < 0 ? undefined : i + 1
+}
+const dayNumber = (word: string | undefined): number | undefined => {
+  const m = word?.match(/^(\d{1,2})(st|nd|rd|th)?,?$/i)
+  const d = m ? Number(m[1]) : NaN
+  return d >= 1 && d <= 31 ? d : undefined
+}
+
+/** A date at words[i…]: ISO, "dec 24 [2026]", "24 dec [2026]" or a weekday. `next` is the index after it. */
+function parseDate(words: string[], i: number, now: number, timeZone?: string): {y: number; mo: number; d: number; next: number; explicitYear?: boolean; weekday?: boolean} | undefined {
+  const w = words[i] ?? ""
+  const iso = w.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (iso) return valid(+iso[1]!, +iso[2]!, +iso[3]!) ? {y: +iso[1]!, mo: +iso[2]!, d: +iso[3]!, next: i + 1, explicitYear: true} : undefined
+
+  const today = todayIn(now, timeZone)
+  const year = (word: string | undefined) => (word && /^\d{4}$/.test(word) ? Number(word) : undefined)
+  const withYear = (mo: number, d: number, next: number) => {
+    const y = year(words[next])
+    if (!valid(y ?? today.y, mo, d)) return undefined
+    return y ? {y, mo, d, next: next + 1, explicitYear: true} : {y: today.y, mo, d, next}
+  }
+  const mo1 = monthIndex(w)
+  const d1 = dayNumber(words[i + 1])
+  if (mo1 && d1) return withYear(mo1, d1, i + 2)
+  const d2 = dayNumber(w)
+  const mo2 = monthIndex(words[i + 1] ?? "")
+  if (d2 && mo2) return withYear(mo2, d2, i + 2)
+
+  const wd = weekdayIndex(w)
+  if (wd !== undefined) {
+    const diff = (wd - weekdayIn(zonedAt(today.y, today.mo, today.d, 12, 0, timeZone), timeZone) + 7) % 7
+    return {y: today.y, mo: today.mo, d: today.d + diff, next: i + 1, weekday: true}
+  }
+  return undefined
+}
+
+const valid = (y: number, mo: number, d: number) => mo >= 1 && mo <= 12 && d >= 1 && d <= new Date(Date.UTC(y, mo, 0)).getUTCDate()
+
 /** "Tue 6 Nov, 18:30" in the given time zone (default: the server's). */
 export function formatDateTime(at: number | Date, timeZone?: string): string {
   return new Intl.DateTimeFormat("en-GB", {timeZone, weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23"}).format(at)
 }
 
-/** Epoch ms of HH:MM on (today + dayOffset) in `timeZone`. */
-function zonedTime(now: number, h: number, m: number, dayOffset: number, timeZone?: string): number {
-  if (!timeZone) {
-    const d = new Date(now)
-    d.setDate(d.getDate() + dayOffset)
-    d.setHours(h, m, 0, 0)
-    return d.getTime()
-  }
+/** Wall-clock parts of `t` in `timeZone` (default: the server's). */
+function partsIn(t: number, timeZone?: string): {y: number; mo: number; d: number; h: number; mi: number} {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {timeZone, year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", hourCycle: "h23"})
+      .formatToParts(t)
+      .map((x) => [x.type, x.value])
+  )
+  return {y: +p.year!, mo: +p.month!, d: +p.day!, h: +p.hour!, mi: +p.minute!}
+}
+
+/** Today's date in `timeZone`. */
+function todayIn(now: number, timeZone?: string): {y: number; mo: number; d: number} {
+  return partsIn(now, timeZone)
+}
+
+/** Epoch ms of y-mo-d HH:MM wall-clock time in `timeZone` (days may overflow: d + 7 is fine). */
+function zonedAt(y: number, mo: number, d: number, h: number, m: number, timeZone?: string): number {
+  if (!timeZone) return new Date(y, mo - 1, d, h, m).getTime()
   // find the UTC instant whose wall-clock time in `timeZone` is the target
-  const parts = (t: number) => {
-    const p = Object.fromEntries(
-      new Intl.DateTimeFormat("en-US", {timeZone, year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", hourCycle: "h23"})
-        .formatToParts(t)
-        .map((x) => [x.type, x.value])
-    )
-    return {y: +p.year!, mo: +p.month!, d: +p.day!, h: +p.hour!, mi: +p.minute!}
-  }
-  const today = parts(now)
-  const guess = Date.UTC(today.y, today.mo - 1, today.d + dayOffset, h, m)
-  const offset = (() => {
-    const w = parts(guess)
-    return Date.UTC(w.y, w.mo - 1, w.d, w.h, w.mi) - guess
-  })()
-  return guess - offset
+  const guess = Date.UTC(y, mo - 1, d, h, m)
+  const w = partsIn(guess, timeZone)
+  return guess - (Date.UTC(w.y, w.mo - 1, w.d, w.h, w.mi) - guess)
 }
 
 /** How a recurring reminder repeats: a fixed interval, or a wall-clock time daily / on one weekday (0 = Sunday). */

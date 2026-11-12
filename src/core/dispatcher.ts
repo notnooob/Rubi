@@ -168,6 +168,7 @@ export class Dispatcher {
     this.inFlight.add(ctx)
     try {
       await this.runWithTimeout(ctx, cmd, async () => {
+        await this.checkEnabled(ctx, cmd)
         this.checkAccess(ctx, cmd)
         this.checkRate(ctx, cmd)
         ctx.args = await parseArgs(cmd.args, rawArgs, (t) => ctx.resolveMember(t))
@@ -184,6 +185,18 @@ export class Dispatcher {
       ctx.abort(new CommandError("Command finished."))
       this.inFlight.delete(ctx)
     }
+  }
+
+  /** Commands an admin turned off in this group (/toggle) don't run, for anyone. */
+  private async checkEnabled(ctx: CommandContext<any>, cmd: Command): Promise<void> {
+    const g = ctx.group
+    if (!g || cmd.hidden) return
+    const {disabled} = await this.rt.data.group(g).get()
+    if (!disabled?.includes(cmd.name)) return
+    // say so once per member and command every 10 minutes, then stay quiet: a turned-off game shouldn't become noise
+    const tell = this.rt.limiter.throttle(`disabled:${g.groupId}:${ctx.sender.key}:${cmd.name}`, 600_000)
+    if (tell) throw new ScopeError(`${this.rt.config.prefix}${cmd.name} is turned off in this group.`)
+    throw new CooldownError("turned off", 0, true)
   }
 
   private checkAccess(ctx: CommandContext<any>, cmd: Command): void {

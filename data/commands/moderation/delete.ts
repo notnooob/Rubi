@@ -1,4 +1,4 @@
-import {defineCommand, moderate, T} from "../../../src/sdk"
+import {defineCommand, fmt, moderate, modLog, T} from "../../../src/sdk"
 
 export default defineCommand({
   name: "delete",
@@ -18,6 +18,8 @@ export default defineCommand({
     const ownMessage = quoted.chatDir?.type === "groupSnd"
     if (ownMessage) await ctx.rt.messenger.delete(ctx.ref, [quoted.itemId])
     else await moderate(() => ctx.chat.apiDeleteMemberChatItem(groupId, [quoted.itemId!]))
+    const author = quoted.chatDir?.type === "groupRcv" ? quoted.chatDir.groupMember.memberProfile.displayName : ownMessage ? "me" : "someone"
+    void modLog(ctx.rt, ctx.group!, `${ctx.sender.displayName} deleted a message from ${author}: ${fmt.truncate(quoted.content.text ?? "", 300)}`)
     // tidy up: remove the /delete command message too (best effort)
     try {
       await ctx.chat.apiDeleteMemberChatItem(groupId, [ctx.itemId])

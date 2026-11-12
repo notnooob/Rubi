@@ -34,19 +34,21 @@ describe("word filter", () => {
     await h.receive(groupMsg("/filter add spam", ADMIN))
     assert.match(h.chat.last()!.text!, /already banned/)
 
+    // /filter add|remove delete their own command message, so the words don't stay visible
+    const base = deletes(h).length
     await automod(h.rt, groupMsg("hello there", {memberId: 2}))
-    assert.equal(deletes(h).length, 0)
+    assert.equal(deletes(h).length, base)
     const bad = groupMsg("BUY NOW cheap", {memberId: 2})
     await automod(h.rt, bad)
-    assert.deepEqual(deletes(h)[0], ["apiDeleteMemberChatItem", 5, [bad.chatItem.meta.itemId]])
+    assert.deepEqual(deletes(h)[base], ["apiDeleteMemberChatItem", 5, [bad.chatItem.meta.itemId]])
     assert.match(h.chat.last()!.text!, /blocked word/)
     await automod(h.rt, groupMsg("spam", ADMIN))
-    assert.equal(deletes(h).length, 1, "admins aren't filtered")
+    assert.equal(deletes(h).length, base + 1, "admins aren't filtered")
 
     await h.receive(groupMsg("/filter remove crypt*, spam", ADMIN))
     assert.match(h.chat.last()!.text!, /Removed 3 banned words/)
-    await h.receive(groupMsg("/filter list", ADMIN))
-    assert.match(h.chat.last()!.text!, /Banned words\* \(1\)[\s\S]*`buy now`/)
+    await h.receive(groupMsg("/filter list", {...ADMIN, contactId: 42}))
+    assert.match(h.chat.sent.find((s) => s.ref === "@42")!.text!, /\(1\)[\s\S]*`buy now`/)
   })
 })
 

@@ -29,16 +29,18 @@ export default defineCommand({
   args: [{name: "command", type: "string", description: "A command or category to show details for"}],
   examples: ["help", "help utility", "help remind"],
   cooldown: 2,
-  run(ctx) {
+  async run(ctx) {
     const query = ctx.args.command?.replace(/^['"]|['"]$/g, "").replace(/^\//, "").trim()
-    return query ? lookup(ctx, query) : overview(ctx)
+    // commands an admin turned off here (/toggle) are left out
+    const off = new Set(ctx.isGroup ? ((await ctx.groupData.get()).disabled ?? []) : [])
+    return query ? lookup(ctx, query, off) : overview(ctx, off)
   },
 })
 
-function overview(ctx: CommandContext<any>): string {
+function overview(ctx: CommandContext<any>, off: ReadonlySet<string>): string {
   const reg = ctx.rt.commands
   const ui = ctx.ui
-  const available = reg.available(ctx)
+  const available = reg.available(ctx).filter((c) => !off.has(c.name))
   const locked = reg.all().filter((c) => !c.hidden && ctx.inScope(c.scope) && !ctx.can(c.permission))
   const elsewhere = reg.all().filter((c) => !c.hidden && !ctx.inScope(c.scope) && ctx.can(c.permission))
 
@@ -49,6 +51,7 @@ function overview(ctx: CommandContext<any>): string {
   const one = (n: number, singular: string, pluralForm: string) => (n === 1 ? singular : pluralForm)
   const notes: string[] = [fmt.plural(available.length, "command") + (ctx.isGroup ? " available here" : "")]
   if (locked.length) notes.push(`${locked.length} more ${one(locked.length, "needs", "need")} a group role you don't have here`)
+  if (off.size) notes.push(`${off.size} turned off in this group`)
   if (elsewhere.length) notes.push(`${elsewhere.length} more ${one(elsewhere.length, "works", "work")} ${ctx.isGroup ? "in DMs" : "in groups"}`)
 
   const roleLine =
@@ -85,15 +88,15 @@ function commandLine(ctx: CommandContext<any>, c: Command): string {
   return `${ctx.ui.cmd(c.name)}${params} — ${c.description}${badge}`
 }
 
-function lookup(ctx: CommandContext<any>, query: string): string {
+function lookup(ctx: CommandContext<any>, query: string, off: ReadonlySet<string>): string {
   const reg = ctx.rt.commands
   const ui = ctx.ui
   const cmd = reg.get(query)
-  if (cmd && (!cmd.hidden || ctx.isBotAdmin)) return details(ctx, cmd)
+  if (cmd && (!cmd.hidden || ctx.isBotAdmin)) return details(ctx, cmd, off.has(cmd.name))
 
   const cat = [...new Set(reg.all().map((c) => c.category))].find((c) => c.toLowerCase() === query.toLowerCase())
   if (cat) {
-    const cmds = reg.available(ctx).filter((c) => c.category === cat)
+    const cmds = reg.available(ctx).filter((c) => c.category === cat && !off.has(c.name))
     const info = CATEGORIES.find((c) => c.name === cat)?.description
     return fmt.lines(
       `${categoryIcon(cat)} ${fmt.bold(cat)}${info ? ` — ${fmt.italic(info)}` : ""}`,
@@ -111,11 +114,13 @@ function lookup(ctx: CommandContext<any>, query: string): string {
   )
 }
 
-function details(ctx: CommandContext<any>, c: Command): string {
+function details(ctx: CommandContext<any>, c: Command, turnedOff = false): string {
   const p = ctx.config.prefix
   const ui = ctx.ui
   const usage = `${p}${c.name}${c.args.length ? " " + c.args.map(argUsage).join(" ") : ""}`
-  const restriction = !ctx.inScope(c.scope)
+  const restriction = turnedOff
+    ? `🔌 Turned off in this group by an admin (${ui.cmd("toggle")}).`
+    : !ctx.inScope(c.scope)
     ? `🚫 ${scopeLabel(c.scope)} — you can't use it in this chat.`
     : !ctx.can(c.permission)
       ? `🔒 Only for ${PERMISSION_LABEL[c.permission].toLowerCase()} — you can't use it here.`
@@ -142,7 +147,7 @@ function details(ctx: CommandContext<any>, c: Command): string {
   )
 }
 
-function argUsage(a: ArgDef): string {
+export function argUsage(a: ArgDef): string {
   const inner = a.choices ? a.choices.join("|") : a.name + (a.type === "text" ? "..." : "")
   return a.required ? `<${inner}>` : `[${inner}]`
 }
@@ -153,7 +158,7 @@ function argLine(a: ArgDef): string {
   return `• ${fmt.code(a.name)} — ${a.description} ${fmt.italic(`${type}${range}${a.required ? "" : ", optional"}`)}`
 }
 
-const TYPE_LABEL: Record<ArgDef["type"], string> = {
+export const TYPE_LABEL: Record<ArgDef["type"], string> = {
   string: "word or \"quoted text\"",
   text: "text",
   integer: "whole number",
@@ -162,7 +167,7 @@ const TYPE_LABEL: Record<ArgDef["type"], string> = {
   member: "group member (@mention or name)",
 }
 
-function scopeLabel(scope: Command["scope"]): string {
+export function scopeLabel(scope: Command["scope"]): string {
   return scope === "group" ? "Groups only" : scope === "direct" ? "Direct messages only" : "DMs and groups"
 }
 

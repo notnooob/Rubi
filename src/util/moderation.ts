@@ -2,6 +2,7 @@ import {T} from "@simplex-chat/types"
 import type {CommandContext} from "../core/context"
 import {chatErrorType, CommandError, PermissionError} from "../core/errors"
 import {roleRank} from "../core/permissions"
+import type {Runtime} from "../core/runtime"
 
 /**
  * Checks shared by moderation commands, before acting on `target`:
@@ -42,4 +43,34 @@ export async function moderate<R>(fn: () => Promise<R>): Promise<R> {
         throw e
     }
   }
+}
+
+/**
+ * Add a warning to a member (shared by /warn and the /filter "warn" action). At the group's limit (default 3,
+ * 0 = never) the member is removed if Rubi is an admin. Returns the new count, the limit and what happened.
+ */
+export async function addWarning(
+  rt: Runtime,
+  g: T.GroupInfo,
+  member: T.GroupMember,
+  reason: string
+): Promise<{count: number; limit: number; removed: boolean; needsAdmin: boolean}> {
+  const settings = await rt.data.group(g).update((s) => {
+    const w = (s.warnings ??= {})
+    const cur = w[member.groupMemberId] ?? {name: member.memberProfile.displayName, count: 0, reasons: [], last: 0}
+    cur.count++
+    cur.name = member.memberProfile.displayName
+    cur.last = Date.now()
+    if (reason) cur.reasons = [...cur.reasons, reason.slice(0, 300)].slice(-10)
+    w[member.groupMemberId] = cur
+  })
+  const count = settings.warnings![member.groupMemberId]!.count
+  const limit = settings.warnLimit ?? 3
+  if (!limit || count < limit) return {count, limit, removed: false, needsAdmin: false}
+  if (roleRank(g.membership.memberRole) < roleRank(T.GroupMemberRole.Admin)) return {count, limit, removed: false, needsAdmin: true}
+  await moderate(() => rt.chat.apiRemoveMembers(g.groupId, [member.groupMemberId]))
+  await rt.data.group(g).update((s) => {
+    delete s.warnings?.[member.groupMemberId]
+  })
+  return {count, limit, removed: true, needsAdmin: false}
 }

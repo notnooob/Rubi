@@ -1,4 +1,4 @@
-import {assertCanModerate, defineCommand, fmt, moderate, T} from "../../../src/sdk"
+import {assertCanModerate, defineCommand, fmt, moderate, T, modLog} from "../../../src/sdk"
 
 export default defineCommand({
   name: "kick",
@@ -21,6 +21,7 @@ export default defineCommand({
     const who = ctx.mention(member)
     if (!(await ctx.confirm(`👢 Remove ${who} from the group?${reason ? `\nReason: ${fmt.italic(reason)}` : ""}`))) return
     await moderate(() => ctx.chat.apiRemoveMembers(ctx.group!.groupId, [member.groupMemberId]))
+    void modLog(ctx.rt, ctx.group!, `${ctx.sender.displayName} removed ${member.memberProfile.displayName}${reason ? `: ${reason}` : ""}`)
     return fmt.lines(`👢 ${fmt.bold(member.memberProfile.displayName)} was removed by ${ctx.sender.displayName}.`, reason ? `Reason: ${fmt.italic(reason)}` : undefined)
   },
 })

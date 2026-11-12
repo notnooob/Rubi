@@ -147,7 +147,7 @@ export class CommandRegistry {
    * Command menu shown by SimpleX apps (the "/" button and autocomplete) — DM-visible,
    * everyone-commands only. Grouped into per-category submenus when there are many.
    */
-  menu(opts: {forGroup?: boolean; maxBytes?: number} = {}): T.ChatBotCommand[] {
+  menu(opts: {forGroup?: boolean; maxBytes?: number; exclude?: readonly string[]} = {}): T.ChatBotCommand[] {
     return this.menuWithin(opts).menu
   }
 
@@ -156,10 +156,10 @@ export class CommandRegistry {
    * SimpleX caps (see `src/core/profile.ts`), so it degrades step by step: without parameter hints, with shorter
    * labels, with bare keywords, and as a last resort without the last commands. `level` says how far it went.
    */
-  menuWithin(opts: {forGroup?: boolean; maxBytes?: number} = {}): {menu: T.ChatBotCommand[]; level: MenuLevel; dropped: number} {
+  menuWithin(opts: {forGroup?: boolean; maxBytes?: number; exclude?: readonly string[]} = {}): {menu: T.ChatBotCommand[]; level: MenuLevel; dropped: number} {
     // DM menu: no group-only commands. Group menu (/groupmenu): no DM-only commands.
     const excluded = opts.forGroup ? "direct" : "group"
-    const visible = this.commands.filter((c) => c.menu && !c.hidden && c.permission === "everyone" && c.scope !== excluded)
+    const visible = this.commands.filter((c) => c.menu && !c.hidden && c.permission === "everyone" && c.scope !== excluded && !opts.exclude?.includes(c.name))
     const build = (cmds: Command[], level: MenuLevel): T.ChatBotCommand[] => {
       const item = (c: Command): T.ChatBotCommand => {
         const required = c.args.filter((a) => a.required)

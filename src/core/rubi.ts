@@ -199,7 +199,8 @@ export class Rubi implements Runtime {
     for (const g of groups) {
       const current = g.groupProfile.groupPreferences?.commands
       if (!current?.length || g.membership.memberRole !== "owner") continue
-      const menu = this.commands.menu({forGroup: true, maxBytes: groupMenuBudget(g.groupProfile)})
+      const {disabled} = await this.data.group(g).get()
+      const menu = this.commands.menu({forGroup: true, maxBytes: groupMenuBudget(g.groupProfile), exclude: disabled})
       if (JSON.stringify(current) === JSON.stringify(menu)) continue
       try {
         await this.chat.apiUpdateGroupProfile(g.groupId, {...g.groupProfile, groupPreferences: {...g.groupProfile.groupPreferences, commands: menu}})

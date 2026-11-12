@@ -37,13 +37,14 @@ export default defineCommand({
   aliases: ["remindme", "reminder"],
   description: "Set a reminder: /remind 10m stretch",
   details:
-    "When: a duration (30s, 10m, 1h30m, 2d, 1w) or a clock time (18:30, 6pm, tomorrow 9:00). " +
+    "When: a duration (30s, 10m, 1h30m, 2d, 1w), a clock time (18:30, 6pm, tomorrow 9:00) or a date " +
+    "(dec 24 18:00, 24 december, 2026-12-24 8am, friday 9:00; without a time it's 9:00). " +
     "Clock times use your time zone from /time set (DMs), otherwise the server's. " +
     "Repeat with every: every 2h (an hour at least), every day 9:00, every monday 18:00. " +
     "In groups, start with @member to remind someone else (only you can cancel it). Reminders survive restarts.",
   category: "Utility",
   args: [{name: "what", type: "text", description: "When, then what to remind you about", required: true}],
-  examples: ["remind 10m stretch", "remind 1h30m check the oven", "remind tomorrow 9:00 call mom", "remind every day 9:00 standup", "remind @bob 1h check the PR"],
+  examples: ["remind 10m stretch", "remind 1h30m check the oven", "remind tomorrow 9:00 call mom", "remind dec 24 18:00 wrap presents", "remind every day 9:00 standup", "remind @bob 1h check the PR"],
   async run(ctx) {
     const timeZone = ctx.isDirect ? (await ctx.contactData.get()).timezone : undefined
     // "@bob 10m …" / "@'Jo Do' 10m …": remind another group member
@@ -63,7 +64,7 @@ export default defineCommand({
     if (!parsed) {
       return recurring
         ? ctx.usageError("Repeat with every 2h (an hour at least), every day 9:00 or every monday 18:00 …")
-        : ctx.usageError("Start with when: 10m, 2h, 1h30m, 18:30, tomorrow 9:00 …")
+        : ctx.usageError("Start with when: 10m, 2h, 18:30, tomorrow 9:00, dec 24 18:00, friday 9:00 …")
     }
     const {repeat} = parsed
     const ms = parsed.at - Date.now()

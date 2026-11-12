@@ -1,4 +1,4 @@
-import {defineCommand, fmt, moderate, roleRank, T} from "../../../src/sdk"
+import {defineCommand, fmt, moderate, roleRank, T, modLog} from "../../../src/sdk"
 
 export default defineCommand({
   name: "purge",
@@ -41,6 +41,8 @@ export default defineCommand({
     if (own.length) await ctx.rt.messenger.delete(ctx.ref, own)
     // tidy up: remove the /purge command message too (best effort)
     await ctx.chat.apiDeleteMemberChatItem(groupId, [ctx.itemId]).catch(() => undefined)
+    const texts = items.map((ci) => (ci.content.type === "rcvMsgContent" ? `${ci.chatDir.type === "groupRcv" ? ci.chatDir.groupMember.memberProfile.displayName : "?"}: ${fmt.truncate(ci.content.msgContent.text, 100)}` : undefined))
+    void modLog(ctx.rt, ctx.group!, fmt.lines(`${ctx.sender.displayName} purged ${n}${member ? ` from ${member.memberProfile.displayName}` : ""}:`, ...texts.filter(Boolean)))
     return `🧹 Deleted ${n}.`
   },
 })

@@ -1,4 +1,4 @@
-import {defineCommand, fmt} from "../../../src/sdk"
+import {defineCommand, fmt, modLog} from "../../../src/sdk"
 
 export default defineCommand({
   name: "unwarn",
@@ -16,6 +16,7 @@ export default defineCommand({
       delete s.warnings?.[member.groupMemberId]
     })
     if (!had) return ctx.fail(`${member.memberProfile.displayName} has no warnings.`)
+    void modLog(ctx.rt, ctx.group!, `${ctx.sender.displayName} cleared ${fmt.plural(had, "warning")} for ${member.memberProfile.displayName}`)
     return `↩️ Cleared ${fmt.plural(had, "warning")} for ${fmt.bold(member.memberProfile.displayName)}.`
   },
 })

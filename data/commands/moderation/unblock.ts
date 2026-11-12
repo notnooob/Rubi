@@ -1,4 +1,4 @@
-import {assertCanModerate, defineCommand, fmt, moderate, T} from "../../../src/sdk"
+import {assertCanModerate, defineCommand, fmt, moderate, T, modLog} from "../../../src/sdk"
 import type {UnblockPayload} from "./block"
 
 export default defineCommand({
@@ -20,6 +20,7 @@ export default defineCommand({
       const p = j.payload as UnblockPayload
       return j.kind === "unblock" && p.groupId === groupId && p.groupMemberId === member.groupMemberId
     })
+    void modLog(ctx.rt, ctx.group!, `${ctx.sender.displayName} unblocked ${member.memberProfile.displayName}`)
     return `✅ ${fmt.bold(member.memberProfile.displayName)} is unblocked.`
   },
 })

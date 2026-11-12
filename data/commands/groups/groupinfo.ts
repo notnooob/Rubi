@@ -24,6 +24,7 @@ export default defineCommand({
       `${fmt.bold("Business chat:")} ${ctx.isBusiness ? "yes" : "no"}`,
       "",
       `${fmt.bold("Rules:")} ${s.rules ? "set" : "none"} · ${fmt.bold("Welcome:")} ${on(!!s.welcome)} · ${fmt.bold("Anti-spam:")} ${on(!!s.antispam)} · ${fmt.bold("Warned:")} ${warned}`,
+      `${fmt.bold("Banned words:")} ${s.filter?.length ?? 0}${s.filter?.length ? ` (${s.filterLevel ?? "normal"}, ${s.filterAction ?? "delete"})` : ""} · ${fmt.bold("Slow mode:")} ${s.slowmodeMs ? fmt.duration(s.slowmodeMs) : "off"} · ${fmt.bold("Turned off:")} ${s.disabled?.length ?? 0} · ${fmt.bold("Mod log:")} ${Object.keys(s.modlog ?? {}).length} admin(s)`,
       ctx.ui.tappable ? "\n" + ctx.ui.buttons([ctx.ui.button("👥", "members"), ctx.ui.button("📜", "rules"), ctx.ui.button("🔗", "link")]) : undefined
     )
   },

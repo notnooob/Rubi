@@ -22,7 +22,7 @@ export default defineCommand({
     const g = ctx.group!
     const on = ctx.args.state ?? true
     const prefs = {...(g.groupProfile.groupPreferences ?? {})}
-    if (on) prefs.commands = ctx.rt.commands.menu({forGroup: true, maxBytes: groupMenuBudget(g.groupProfile)})
+    if (on) prefs.commands = ctx.rt.commands.menu({forGroup: true, maxBytes: groupMenuBudget(g.groupProfile), exclude: (await ctx.groupData.get()).disabled})
     else delete prefs.commands
     try {
       await ctx.chat.apiUpdateGroupProfile(g.groupId, {...g.groupProfile, groupPreferences: prefs})

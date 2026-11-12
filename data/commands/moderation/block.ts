@@ -1,4 +1,4 @@
-import {assertCanModerate, defineCommand, defineJob, describeError, fmt, moderate, parseDuration, T} from "../../../src/sdk"
+import {assertCanModerate, defineCommand, defineJob, describeError, fmt, moderate, parseDuration, T, modLog} from "../../../src/sdk"
 
 export interface UnblockPayload {
   ref: T.ChatRef
@@ -47,6 +47,7 @@ export default defineCommand({
     const groupId = ctx.group!.groupId
     await moderate(() => ctx.chat.apiBlockMembersForAll(groupId, [member.groupMemberId], true))
     const name = member.memberProfile.displayName
+    void modLog(ctx.rt, ctx.group!, `${ctx.sender.displayName} blocked ${name}${ms !== undefined ? ` for ${fmt.duration(ms)}` : ""}`)
     if (ms !== undefined) {
       ctx.rt.scheduler.schedule<UnblockPayload>("unblock", Date.now() + ms, {ref: ctx.ref, groupId, groupMemberId: member.groupMemberId, name})
     }

@@ -1,5 +1,6 @@
 import type {T} from "@simplex-chat/types"
 import type {api} from "simplex-chat"
+import type {FilterLevel} from "../util/wordfilter"
 
 /**
  * Per-group and per-contact settings, stored *inside the SimpleX chat database* via
@@ -26,6 +27,16 @@ export interface GroupSettings {
   events?: GroupEvent[]
   /** Banned words/phrases (lowercase, `*` wildcard): messages containing one are deleted (/filter). */
   filter?: string[]
+  /** What else happens to a filtered message's author (default: only the delete). */
+  filterAction?: "delete" | "warn" | "block"
+  /** How long a "block" filter action lasts, in ms (default 10 minutes). */
+  filterBlockMs?: number
+  /** How hard the filter looks (default "normal"; see src/util/wordfilter.ts). */
+  filterLevel?: FilterLevel
+  /** Command names turned off in this group (/toggle). */
+  disabled?: string[]
+  /** Admins who get the moderation log by DM, by groupMemberId (/modlog). */
+  modlog?: Record<string, {contactId: number; name: string}>
   /** Minimum time between two messages of a member, in ms (/slowmode). */
   slowmodeMs?: number
 }

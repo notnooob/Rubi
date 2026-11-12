@@ -1,8 +1,9 @@
-import {defineEvent, describeError, fmt, roleAtLeast, T, type Runtime} from "../../src/sdk"
+import {chatUtil, defineEvent, describeError, fmt, modLog, roleAtLeast, T, type Runtime} from "../../src/sdk"
 
 /**
  * /antispam on: delete links posted by members who joined in the last 24 hours (below moderator).
  * "Joined" means after Rubi joined — members already there when Rubi arrived are never treated as new.
+ * Edited messages are checked too, so a link can't be added afterwards (or typed into a live message).
  */
 const NEW_MEMBER_MS = 24 * 3_600_000
 const LINK_FORMATS = new Set(["uri", "hyperLink", "simplexLink"])
@@ -14,8 +15,8 @@ function hasLink(item: T.ChatItem): boolean {
   return c.type === "rcvMsgContent" && LINK_RE.test(c.msgContent.text)
 }
 
-async function check(rt: Runtime, ci: T.AChatItem): Promise<void> {
-  if (ci.chatInfo.type !== "group" || ci.chatItem.chatDir.type !== "groupRcv") return
+export async function antispam(rt: Runtime, ci: T.AChatItem): Promise<void> {
+  if (ci.chatInfo.type !== "group" || ci.chatItem.chatDir.type !== "groupRcv" || ci.chatItem.meta.itemDeleted) return
   const g = ci.chatInfo.groupInfo
   const m = ci.chatItem.chatDir.groupMember
   if (roleAtLeast(m.memberRole, T.GroupMemberRole.Moderator)) return
@@ -33,6 +34,7 @@ async function check(rt: Runtime, ci: T.AChatItem): Promise<void> {
     return
   }
   rt.log.info(`antispam: removed a link from @${m.memberProfile.displayName} in #${g.groupProfile.displayName}`)
+  void modLog(rt, g, `anti-spam removed a link from new member ${m.memberProfile.displayName}: ${chatUtil.itemText(ci.chatItem) ?? ""}`)
   if (rt.limiter.throttle(`antispam:${g.groupId}:${m.groupMemberId}`, 10 * 60_000)) {
     const name = m.memberProfile.displayName
     await rt.messenger
@@ -43,11 +45,18 @@ async function check(rt: Runtime, ci: T.AChatItem): Promise<void> {
   }
 }
 
-export default defineEvent(
-  "newChatItems",
-  ({chatItems}, rt) => {
-    // don't hold up the event loop
-    for (const ci of chatItems) void check(rt, ci).catch((e) => rt.log.warn(`antispam check failed: ${describeError(e)}`))
-  },
-  {name: "antispam"}
-)
+export default [
+  defineEvent(
+    "newChatItems",
+    ({chatItems}, rt) => {
+      // don't hold up the event loop
+      for (const ci of chatItems) void antispam(rt, ci).catch((e) => rt.log.warn(`antispam check failed: ${describeError(e)}`))
+    },
+    {name: "antispam"}
+  ),
+  defineEvent(
+    "chatItemUpdated",
+    ({chatItem}, rt) => void antispam(rt, chatItem).catch((e) => rt.log.warn(`antispam check failed: ${describeError(e)}`)),
+    {name: "antispam:edits"}
+  ),
+]
