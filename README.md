@@ -17,9 +17,22 @@ built on the official [`simplex-chat`](https://www.npmjs.com/package/simplex-cha
 with no analytics or tracking. Group settings live in Rubi's own chat database (which you can encrypt), and web
 lookups can go through Tor.
 
+**New to Rubi? Read the [Rubi wiki](https://github.com/notnooob/Rubi/wiki)** for everything about using it, running a group with it, and hosting it.
+
+## Documentation
+
+The [Rubi wiki](https://github.com/notnooob/Rubi/wiki) is the full documentation:
+
+| Page | For |
+|---|---|
+| [Using Rubi](https://github.com/notnooob/Rubi/wiki/Using-Rubi) | Everyone: sending commands, buttons, reminders, polls, games, web lookups, privacy |
+| [Group Admin Guide](https://github.com/notnooob/Rubi/wiki/Group-Admin-Guide) | Group owners, admins and moderators: setup, roles, moderation, banned words, slow mode, the moderation log, turning commands off |
+| [Running Rubi](https://github.com/notnooob/Rubi/wiki/Running-Rubi) | Whoever hosts Rubi: bot admins, admin commands, configuration, data and backups |
+| [Command Reference](https://github.com/notnooob/Rubi/wiki/Command-Reference) | Every command with its usage, arguments, examples and permissions |
+
 ## Features
 
-- **73 commands**, each in its own file, in 7 categories. `/help` builds itself from them and only shows what
+- **75 commands**, each in its own file, in 7 categories. `/help` builds itself from them and only shows what
   you're allowed to run in the current chat.
 - **Live replies:** slow commands answer straight away with a live message that turns into the result
   (and jokes reveal their punchline live).
@@ -39,11 +52,14 @@ lookups can go through Tor.
 - **Personal and group organization:** `/prefs` saves DM defaults, `/todo` maintains small chat task lists, `/event`
   handles visible group RSVPs, and `/cleanlink` removes common tracking parameters without opening URLs.
 - **Group moderation** based on SimpleX member roles: kick, roles, block (optionally for a set time), warnings with an
-  automatic removal limit, delete, purge of recent messages, banned words (`/filter`), slow mode, anti-spam for new
-  members, welcome messages and rules.
+  automatic removal limit, delete, purge of recent messages, banned words (`/filter`, with warn/block actions and
+  stricter levels that see through sp4m-style disguises), slow mode, anti-spam for new members, welcome messages and
+  rules. Edited messages are checked too.
+- **Moderation log by DM:** `/modlog on` sends a group's admins every moderation action privately, never in the
+  group. `/toggle` turns commands or whole categories off per group.
 - **Reminders** that survive restarts, in DMs and groups, once or repeating (`/remind every day 9:00 standup`), for
   yourself or another member (`/remind @bob 1h check the PR`). Only the person who made a poll or reminder can close or
-  cancel it.
+  cancel it. Dates work too (`/remind dec 24 18:00 …`, `/remind friday 9:00 …`).
 - **Tappable commands:** in DMs, commands in Rubi's replies are buttons. In groups they show as `code`, unless the
   group enables Rubi's command menu (see [Using Rubi in groups](#using-rubi-in-groups)).
 - **Typed arguments, cooldowns, anti-flood, timeouts**, "did you mean" suggestions, and friendly error messages
@@ -57,11 +73,13 @@ lookups can go through Tor.
 | 🛠 Utility | `/remind` `/reminders` `/poll` `/calc` `/convert` `/prefs` `/todo` `/cleanlink` `/roll` `/choose` `/time` `/qr` `/uuid` `/password` `/hash` `/base64` `/timestamp` |
 | 🌐 Web | `/reddit` `/x` `/deals` `/weather` `/wiki` `/define` `/currency` `/crypto` `/status` `/dns` `/github` `/npm` `/country` `/holidays` `/hn` |
 | 🎲 Fun | `/8ball` `/coinflip` `/rps` `/trivia` `/wyr` `/joke` `/fact` `/quote` `/xkcd` |
-| 👥 Groups | `/groupinfo` `/members` `/rules` `/welcome` `/event` `/link` `/antispam` `/filter` `/slowmode` `/seen` `/afk` `/groupmenu` |
-| 🛡 Moderation | `/kick` `/role` `/block` `/unblock` `/warn` `/warnings` `/unwarn` `/delete` (reply to a message) `/purge` |
+| 👥 Groups | `/groupinfo` `/members` `/rules` `/welcome` `/event` `/link` `/antispam` `/filter` `/slowmode` `/toggle` `/seen` `/afk` `/groupmenu` |
+| 🛡 Moderation | `/kick` `/role` `/block` `/unblock` `/warn` `/warnings` `/unwarn` `/delete` (reply to a message) `/purge` `/modlog` |
 | ⚙️ Admin | `/reload` `/stats` `/groups` `/leave` `/broadcast` `/join` (bot admins only) |
 
 In chat, send `/help <category>` for descriptions, or `/help <command>` for usage, arguments and examples.
+
+Every command's usage, arguments and examples are in the wiki's [Command Reference](https://github.com/notnooob/Rubi/wiki/Command-Reference).
 
 The web commands use free public APIs that need no key: Open-Meteo, Wikipedia, Free Dictionary, Frankfurter (ECB rates),
 CoinGecko, Cloudflare DNS-over-HTTPS, GitHub, npm, Nager.Date, Hacker News, JokeAPI, xkcd, CheapShark and Open Trivia DB.
@@ -184,11 +202,13 @@ Set `RUBI_HTTP_PROXY` to a Tor SOCKS proxy to hide it.
    hi, and explains how to turn on its command menu.
 2. Give Rubi the role that matches what you want it to do (member list → Rubi → role):
    - **member**: everything except moderation
-   - **moderator**: also `/block`, `/delete`, `/purge` and anti-spam
-   - **admin**: also `/kick`, `/role`, `/link`, `/filter`, `/slowmode` and automatic removal at the warning limit
+   - **moderator**: also `/block`, `/delete`, `/purge`, anti-spam, banned words and slow mode
+   - **admin**: also `/kick`, `/role`, `/link` and automatic removal at the warning limit
    - **owner**: also `/groupmenu`, which makes commands **tappable** in the group and adds Rubi's commands to
      the `/` menu for all members
-3. Admins can set `/rules`, a `/welcome` message for new members, and `/antispam on`.
+3. Admins can set `/rules`, a `/welcome` message for new members, `/antispam on`, banned words (`/filter`),
+   `/slowmode` and `/toggle`, and get the moderation log with `/modlog on`. The
+   [Group Admin Guide](https://github.com/notnooob/Rubi/wiki/Group-Admin-Guide) explains every setting.
 
 Why `/groupmenu`? The SimpleX apps only make commands in messages tappable in a group when the group profile has a
 bot command menu, and only owners can change the group profile. Without it, Rubi shows commands as `code` in that
@@ -201,6 +221,9 @@ group and leaves out convenience buttons.
 - Commands just for your own copy go in `data/commands/custom/`. That folder is gitignored, so they never get committed
   (see [its README](data/commands/custom/README.md)).
 - `npm run check` runs the typecheck and tests. The tests use a fake chat core, so they need no native library or external network.
+- The wiki is published from [`guide/`](guide/README.md): edit the pages there, and `.github/workflows/wiki.yml`
+  updates the wiki on every push to `main`. After changing a command, run `npm run guide` to regenerate the command
+  reference (a test fails while it's stale).
 - `npm run docs:sync` mirrors the official SimpleX bot API docs into `docs/`.
 - `npm run avatar` re-renders the profile pictures from `assets/avatar.svg`.
 - [AGENTS.md](AGENTS.md) covers the architecture, the utilities available to commands, and the SimpleX quirks Rubi

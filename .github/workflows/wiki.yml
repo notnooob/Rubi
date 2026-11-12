@@ -1,0 +1,33 @@
+# Publishes guide/ to the repository's GitHub wiki whenever it changes on main.
+# One-time setup: open the repo's Wiki tab and save any first page (GitHub only creates the wiki's git repository then).
+name: Wiki
+
+on:
+  push:
+    branches: [main]
+    paths: [guide/**, scripts/build-wiki.mjs, .github/workflows/wiki.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency: wiki
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone the wiki
+        run: git clone "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git" wiki
+      - name: Build pages from guide/
+        run: node scripts/build-wiki.mjs wiki "${{ github.server_url }}/${{ github.repository }}"
+      - name: Push
+        working-directory: wiki
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then echo "wiki is up to date"; exit 0; fi
+          git commit -m "Update from guide/ at ${GITHUB_SHA::7}"
+          git push

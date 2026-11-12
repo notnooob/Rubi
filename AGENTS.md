@@ -34,13 +34,13 @@ Commands (one file each in `data/commands/<category>/`; the folder is the catego
   `/base64` `/timestamp` (+ hidden helpers `/unremind`, `/endpoll`)
 - **Web:** `/reddit` (alias `/r`) `/x` (aliases `/twitter`, `/tweet`) `/deals` `/weather` `/wiki` `/define` `/currency` `/crypto` `/status` `/dns` `/github` `/npm` `/country` `/holidays` `/hn`
 - **Fun:** `/8ball` `/coinflip` `/rps` `/trivia` (including `tournament`) `/wyr` `/joke` `/fact` `/quote` `/xkcd`
-- **Groups:** `/groupinfo` `/members` `/rules` `/welcome` `/event` `/link` `/antispam` `/filter` `/slowmode` `/seen` `/afk` `/groupmenu`
-- **Moderation:** `/kick` `/role` `/block` (optional duration) `/unblock` `/warn` `/warnings` `/unwarn` `/delete` `/purge`
+- **Groups:** `/groupinfo` `/members` `/rules` `/welcome` `/event` `/link` `/antispam` `/filter` `/slowmode` `/toggle` `/seen` `/afk` `/groupmenu`
+- **Moderation:** `/kick` `/role` `/block` (optional duration) `/unblock` `/warn` `/warnings` `/unwarn` `/delete` `/purge` `/modlog`
 - **Admin** (bot admins): `/reload` `/stats` `/groups` `/leave` `/broadcast` `/join`
 - **System** (hidden; buttons send these): `/vote` `/page` `/confirm` `/cancel`
 
 Events (`data/events/`): auto-join + greeting, then a `/groupmenu` tip in groups without the menu (`groups.ts`), custom welcome for new members (`members.ts`), anti-spam (`antispam.ts`),
-banned words + slow mode (`automod.ts`), last-seen and AFK replies (`activity.ts`), and cleanup of jobs/interactions for chats Rubi left and reminders of members who left (`cleanup.ts`).
+banned words + slow mode (`automod.ts`; it and anti-spam also check `chatItemUpdated`, i.e. edits and finished live messages), last-seen and AFK replies (`activity.ts`), and cleanup of jobs/interactions for chats Rubi left and reminders of members who left (`cleanup.ts`).
 
 ## Tappable commands, buttons and groups (read before writing replies)
 
@@ -97,15 +97,21 @@ AGENTS.md              ← you are here
 README.md              ← user-facing overview, setup, configuration
 LICENSE                ← AGPL-3.0 (same as simplex-chat)
 .env.example           ← every config variable, documented
-package.json           ← scripts: dev, build, start, test, typecheck, check, docs:sync, avatar, setup:native
+package.json           ← scripts: dev, build, start, test, typecheck, check, docs:check, docs:sync, guide, avatar, setup:native
 tsconfig.json          ← typecheck config (src + data + test); tsconfig.build.json = build (src + data)
 scripts/sync-docs.mjs  ← mirrors upstream docs into docs/
 scripts/make-avatar.mjs  ← assets/avatar.svg → avatar.png (512px), avatar-round.png (README) + avatar.jpg (profile pic, ≤ 9K data URI)
 scripts/setup-native.mjs ← installs/repairs the simplex-chat native lib + rebuilds the addon
 scripts/check-docs.mjs   ← validates command-count, command-table and configuration documentation
+scripts/make-guide.ts    ← `npm run guide`: writes guide/commands.md from the command definitions (test/guide.test.ts checks it's current)
+scripts/build-wiki.mjs   ← guide/ → GitHub wiki pages (page names in PAGES, .md links rewritten, sidebar + footer); .d.mts = its types
 assets/                ← avatar.svg (source), avatar.png, avatar-round.png (README), avatar.jpg (default RUBI_AVATAR)
-.github/workflows/check.yml ← native-free CI typecheck, tests, build and documentation checks
+.github/workflows/wiki.yml  ← on push to main (guide/ changed): build-wiki.mjs → push to the repo's wiki (GITHUB_TOKEN, contents: write)
 docs/                  ← GENERATED SimpleX API docs (see above)
+guide/                 ← USER DOCS, published as the GitHub wiki (README → Home; edit here, never in the wiki):
+                         hand-written except commands.md: README index, using-rubi.md (members),
+                         group-admins.md (setup, roles, moderation, filter/slowmode/modlog/toggle, settings table),
+                         bot-admins.md (operators), commands.md (GENERATED reference: `npm run guide`)
 data/
   commands/            ← ONE FILE PER COMMAND (auto-loaded, recursive; subfolder = default category)
     help.ts            ← /help — dynamic command list + per-command details
@@ -116,8 +122,8 @@ data/
   events/              ← chat event handlers (auto-loaded, recursive)
     groups.ts          ← auto-join group invitations, greet on join + /groupmenu tip (groupMenuTip)
     members.ts         ← custom /welcome for new members
-    antispam.ts        ← /antispam: delete links from brand-new members
-    automod.ts         ← /filter banned words + /slowmode: delete members' messages (below moderator); automod() exported for tests
+    antispam.ts        ← /antispam: delete links from brand-new members (new and edited messages); antispam() exported for tests
+    automod.ts         ← /filter banned words (levels, delete/warn/block action) + /slowmode, on new and edited messages; automod() exported for tests
     activity.ts        ← /seen last-post times, /afk mention replies + welcome back; trackActivity() exported for tests
     cleanup.ts         ← forgetChat on deletedMemberUser / groupDeleted / contactDeletedByContact / leftMember / deletedMember
 src/
@@ -165,9 +171,10 @@ src/
     calc.ts            ← safe expression evaluator (no eval)
     units.ts           ← offline /convert units, aliases and affine temperature conversions
     links.ts           ← offline tracking-parameter cleaning and URL extraction
-    wordfilter.ts      ← /filter: parseWordList, findBlocked (whole words, phrases, * wildcard), matchesPattern
+    wordfilter.ts      ← /filter: parseWordList, findBlocked (levels normal/strict/max, phrases, * wildcard), matchesPattern
+    modlog.ts          ← modLog(rt, g, text): moderation log DMs to subscribed admins; adminContact for private replies
     qr.ts              ← QR code → inline image data URI
-    moderation.ts      ← assertCanModerate + moderate() (role checks, friendly chat-core errors)
+    moderation.ts      ← assertCanModerate + moderate() (role checks, friendly chat-core errors) + addWarning (/warn, filter action)
     media.ts           ← thumbnails (sharp), ffmpeg audio merge / frames, download folders (storage/media)
     attachments.ts     ← download media → SimpleX image/video/file messages → send; fallbacks, DASH audio, notes
 test/
@@ -182,6 +189,8 @@ test/
   tournament.test.ts   ← /wyr voting and multi-round /trivia tournament scores and jobs
   improvements.test.ts ← preferences, tasks, clean links, future time, events and health diagnostics
   moderation-tools.test.ts ← /filter, /slowmode, /seen + /afk, /remind @member
+  group-admin.test.ts  ← filter edits/actions/levels, anti-spam edits, /toggle, /modlog linking, reminder dates
+  guide.test.ts        ← guide/commands.md matches the command definitions
 storage/               ← SQLite DB files, rubi-state.json, rubi.lock, media/ downloads (gitignored)
 ```
 
@@ -286,7 +295,9 @@ Everything below is exported from `src/sdk.ts` and/or available on `ctx` / `rt`.
 - **Personal/group organization:** `/prefs` stores DM-only weather/country/currency defaults; `/todo` stores bounded
   personal or group tasks; `/event` creates one-off visible group RSVPs with a scheduled reminder; `/cleanlink` removes
   common tracking parameters without opening the URL; `/time at` converts an explicit ISO instant across IANA zones.
-- **Time:** `parseWhen("tomorrow 9:00 call mom", now, tz)` gives `{at, rest}`; `parseRepeat("every mon 18:00 gym", now, tz)`
+- **Time:** `parseWhen("tomorrow 9:00 call mom", now, tz)` gives `{at, rest}`; it also takes dates (`dec 24 18:00`,
+  `24 december`, `2026-12-24 8am`, `friday 9:00`, optional `on`; no time = 9:00; a passed yearless date = next year;
+  an explicit past year = undefined); `parseRepeat("every mon 18:00 gym", now, tz)`
   gives `{at, rest, repeat}` (intervals ≥ 1h; day/weekday need a clock) and `nextRepeat(repeat, prevAt, now, tz)` the next
   run (wall-clock, so DST-safe; missed runs skipped); also `parseDuration("1h30m")`,
   `formatDateTime(at, tz)` and `fmt.relative(at)`.
@@ -295,16 +306,31 @@ Everything below is exported from `src/sdk.ts` and/or available on `ctx` / `rt`.
   `/block @x 10m` schedules an `unblock` job (cancelled by `/unblock`). `/purge N [@member]` reads recent history with
   `ctx.chat.apiGetChat(T.ChatType.Group, id, count)` (typed `any` by the library; cast to `T.AChat`) and only deletes
   messages whose author ranks below both the invoker and Rubi, since chat core rejects the whole batch otherwise.
-- **Automod:** `/filter` (admins) keeps `GroupSettings.filter` (lowercase entries, comma-separated input, `*` wildcard,
-  whole-word matching; `remove` takes exact entries or `*` patterns; max 500). `/slowmode 30s` (admins) sets
-  `GroupSettings.slowmodeMs` (5s–6h); last-post times are in memory, measured with `meta.itemTs`, and commands don't
-  count. Both skip moderators+ and need Rubi to be a moderator. Notices are throttled to one per member per minute.
+- **Automod:** `/filter` (admins) keeps `GroupSettings.filter` (lowercase entries, comma-separated input, `*` wildcard;
+  `remove` takes exact entries or `*` patterns; max 500). `filterAction` (`warn` → `addWarning`, `block` → apiBlockMembersForAll
+  + an `unblock` job, `filterBlockMs` default 10m) runs after the delete. `filterLevel`: `normal` whole words; `strict`
+  folds the text first (NFKD, marks/zero-width removed, Cyrillic/Greek look-alikes and digits mapped, symbols `@$!|+` only
+  before a letter, 3+ repeats collapsed); `max` also joins s.p.a.m-style letters and matches inside words. Entries are folded
+  the same way. The word list is never posted in the group: `/filter list` DMs it (`adminContact`), add/remove replies
+  give counts and try to delete the command message. `/slowmode 30s` (admins) sets `GroupSettings.slowmodeMs` (5s–6h);
+  last-post times are in memory, measured with `meta.itemTs`, and commands and edits don't count. Both skip
+  moderators+ and need Rubi to be a moderator. Notices are throttled to one per member per minute.
 - **Activity:** `rt.store` collections `seen` and `afk`, keyed `memberKey(groupId, groupMemberId)` (`g5:12`; types in
   `data/commands/groups/afk.ts`). "Seen" is written at most once a minute per member. AFK ends on the member's next
   message (except `/afk` itself). Messages sent while Rubi was offline update "seen" but get no AFK replies.
   `forgetChat` deletes these records for a group, or for one member.
 - **Reminders for others:** `/remind @member …` (groups) stores the target as `name`/`memberId` and the creator as
   `by`/`byMemberId`; the creator owns it (`userKey`). `forgetChat(rt, ref, id)` cancels reminders for *or* by that member.
+- **Moderation log:** `void modLog(rt, g, "…")` (never throws) DMs a line to every `GroupSettings.modlog` subscriber
+  who is *currently* an admin (checked with apiListMembers each time; members gone from the list are pruned). Every
+  moderation command, automod/anti-spam action and settings change calls it. Anything sensitive (deleted text, banned
+  words) goes here, never into the group. `/modlog on` links an admin's DM: their `memberContactId`, else
+  `apiCreateMemberContact` + `apiSendMemberContactInvitation` (same profile as in the group, incognito included; needs
+  the group to allow DMs), else a one-time code from `/modlog link` in a DM (any profile; in-memory, 10 min, single use).
+- **Per-group command switch:** `/toggle on|off <commands or categories>` stores names in `GroupSettings.disabled`. The
+  dispatcher's `checkEnabled` refuses them for everyone (one notice per member+command per 10 min, then silent),
+  `/help` hides them, and `registry.menu({exclude})` leaves them out of `/groupmenu` and `syncGroupMenus`. `/help`,
+  `/toggle` and hidden commands can't be turned off. (`/commands` is an alias of `/help`, hence the name.)
 - **Startup log:** after "online", Rubi logs groups, scheduled jobs, open polls/games and failed jobs, and one total of
   commands skipped by `RUBI_SKIP_MISSED_COMMANDS` once they've stopped arriving (5s quiet).
 - **Places:** `geocode(ctx.http, "Oslo")`, `placeLabel`, `isTimeZone`, `utcOffset`, `weatherCode`.
@@ -321,6 +347,10 @@ Everything below is exported from `src/sdk.ts` and/or available on `ctx` / `rt`.
    The menu syncs to the bot profile on the next start.
 5. Add a test (`test/bot.test.ts` for core behaviour, `test/features.test.ts` for commands) using the harness
    (`makeHarness`, `dm()`, `groupMsg()`, `member()`, `h.react()`, `fakeHttp`), then run `npm run check`.
+6. Run `npm run guide` to regenerate `guide/commands.md`, and update the hand-written `guide/` pages if the command
+   changes how people use Rubi (test/guide.test.ts fails while commands.md is stale). The wiki updates itself from
+   `guide/` on push to main. A new guide page needs a wiki name in `PAGES` (scripts/build-wiki.mjs); links between
+   guide pages use the file names (`group-admins.md#…`), links into the repo use `../`.
 
 **Custom commands** (a user's own, for their copy only) go in `data/commands/custom/` (🧩 Custom category). That
 folder is gitignored except its README, and `scripts/check-docs.mjs` skips it, so they're never committed and never
@@ -362,6 +392,10 @@ Don't handle `newChatItems` for commands, because the dispatcher already does th
 - Quoting a deleted message fails with `storeError` `invalidQuote` (e.g. a reply to a `/purge` or `/delete` command
   that removed itself, or a reminder whose `/remind` message is gone). `Messenger.sendComposed` then resends without
   the quote, so every reply path survives it. `FakeChat` refuses quotes of items deleted through it, the same way.
+- `apiGetChats` pagination (`PaginationByTime`) only has `last` (count) in this version, so there's no way to page
+  through contacts. `/broadcast` keeps `apiListContacts` (which the library warns can fail on very large databases).
+- `apiCreateMemberContact` / `apiSendMemberContactInvitation` exist in `node_modules/simplex-chat/src/api.ts` but not in
+  `docs/bot-api/COMMANDS.md`. Invitations fail when the group doesn't allow direct messages.
 - `bot.run` calls `process.exit()` on some setup failures, e.g. when `useBotProfile` is combined with custom
   `files/calls/voice/commands` preferences. Pass the command menu via `options.commands`, never via `profile.preferences`.
 - Importing `simplex-chat` at runtime loads the native addon. Core modules only `import type` from it.

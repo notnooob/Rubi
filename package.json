@@ -28,7 +28,8 @@
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "docs:sync": "node scripts/sync-docs.mjs",
     "avatar": "node scripts/make-avatar.mjs",
-    "setup:native": "node scripts/setup-native.mjs"
+    "setup:native": "node scripts/setup-native.mjs",
+    "guide": "tsx scripts/make-guide.ts"
   },
   "dependencies": {
     "@simplex-chat/types": "^0.10.3",
