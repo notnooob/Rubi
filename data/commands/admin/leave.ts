@@ -1,4 +1,4 @@
-import {defineCommand, fmt} from "../../../src/sdk"
+import {defineCommand, fmt, forgetChat, T} from "../../../src/sdk"
 
 export default defineCommand({
   name: "leave",
@@ -15,6 +15,7 @@ export default defineCommand({
     if (!(await ctx.confirm(`🚪 Leave ${fmt.bold(g.groupProfile.displayName)}?`))) return
     if (ctx.group?.groupId === id) await ctx.send("👋 Bye everyone!").catch(() => undefined)
     await ctx.chat.apiLeaveGroup(id)
+    forgetChat(ctx.rt, {chatType: T.ChatType.Group, chatId: id})
     // can't reply in a group we just left
     if (ctx.group?.groupId !== id) return `🚪 Left ${fmt.bold(g.groupProfile.displayName)}.`
   },

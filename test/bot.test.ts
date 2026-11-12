@@ -117,16 +117,16 @@ describe("dispatcher", () => {
   it("limits admin commands to group admins", async () => {
     const h = makeHarness()
     let ran = 0
-    h.rt.commands.register(defineCommand({name: "purge", description: "d", permission: "admin", run: () => (ran++, "purged")}))
+    h.rt.commands.register(defineCommand({name: "wipeall", description: "d", permission: "admin", run: () => (ran++, "wiped")}))
 
-    await h.receive(groupMsg("/purge", {role: T.GroupMemberRole.Moderator}))
-    assert.match(h.chat.last()!.text!, /^🔒 \/purge is only for group admins\./)
-    await h.receive(dm("/purge"))
+    await h.receive(groupMsg("/wipeall", {role: T.GroupMemberRole.Moderator}))
+    assert.match(h.chat.last()!.text!, /^🔒 \/wipeall is only for group admins\./)
+    await h.receive(dm("/wipeall"))
     assert.match(h.chat.last()!.text!, /use it in a group where you have that role/)
-    await h.receive(groupMsg("/purge", {role: T.GroupMemberRole.Owner}))
-    assert.equal(h.chat.last()!.text, "purged")
-    await h.receive(dm("/purge", {contactId: 99}))
-    assert.equal(h.chat.last()!.text, "purged", "bot admins bypass role checks")
+    await h.receive(groupMsg("/wipeall", {role: T.GroupMemberRole.Owner}))
+    assert.equal(h.chat.last()!.text, "wiped")
+    await h.receive(dm("/wipeall", {contactId: 99}))
+    assert.equal(h.chat.last()!.text, "wiped", "bot admins bypass role checks")
     assert.equal(ran, 2)
   })
 
@@ -255,5 +255,22 @@ describe("dispatcher", () => {
     assert.equal(h.chat.last()!.text, "@'Jo Do' is #3")
     await h.receive(groupMsg("/zwho nobody"))
     assert.match(h.chat.last()!.text!, /No member named "nobody"/)
+  })
+})
+
+describe("missed commands", () => {
+  const sentBeforeStart = (item: ReturnType<typeof dm>) => {
+    item.chatItem.meta.itemTs = new Date(Date.now() - 60_000).toISOString()
+    return item
+  }
+
+  it("ignores commands sent while the bot was offline, unless configured", async () => {
+    const h = makeHarness()
+    await h.receive(sentBeforeStart(dm("/ping")))
+    assert.equal(h.chat.sent.length, 0)
+
+    const late = makeHarness((cfg) => (cfg.replies.skipMissedCommands = false))
+    await late.receive(sentBeforeStart(dm("/ping")))
+    assert.ok(late.chat.sent.length > 0)
   })
 })

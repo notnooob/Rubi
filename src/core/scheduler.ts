@@ -17,7 +17,11 @@ export interface Job<P = unknown> {
   retryAt?: number
 }
 
-export type JobHandler<P = any> = (job: Job<P>, rt: Runtime) => void | Promise<void>
+/** Return a due time (epoch ms) to run the same job again later (recurring jobs); return nothing to finish it. */
+export type JobHandler<P = any> = (job: Job<P>, rt: Runtime) => void | number | Promise<void | number>
+
+/** Jobs that failed permanently are kept this long for inspection, then deleted. */
+const FAILED_KEEP_MS = 7 * 86_400_000
 
 /** Job handlers by kind — filled by `defineJob` at module load. */
 export const jobKinds = new Map<string, JobHandler>()
@@ -108,6 +112,11 @@ export class Scheduler {
     if (!rt || !this.accepting) return
     const now = Date.now()
     for (const job of this.jobs.values()) {
+      if (job.failedAt && job.failedAt < now - FAILED_KEEP_MS) {
+        this.jobs.delete(job.id)
+        this.log.info(`deleted job ${job.kind}/${job.id} that failed on ${new Date(job.failedAt).toISOString()}`)
+        continue
+      }
       if (job.at > now || (job.retryAt ?? 0) > now || job.failedAt || this.running.has(job.id)) continue
       const handler = this.handlers.get(job.kind)
       if (!handler) {
@@ -119,8 +128,11 @@ export class Scheduler {
       this.running.add(job.id)
       const work = Promise.resolve()
         .then(() => handler(job, rt))
-        .then(() => {
-          this.jobs.delete(job.id)
+        .then((next) => {
+          // `has`: a job cancelled while it ran stays cancelled
+          if (typeof next === "number" && this.jobs.has(job.id)) {
+            this.jobs.set(job.id, {...job, at: next, attempts: undefined, retryAt: undefined, lastError: undefined})
+          } else this.jobs.delete(job.id)
         })
         .catch((e) => {
           const attempts = (job.attempts ?? 0) + 1

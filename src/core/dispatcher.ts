@@ -106,6 +106,8 @@ export class Dispatcher {
 
     const text = itemText(ci.chatItem)?.trim()
     if (!text) return
+    // itemTs of a received message is the relay server's time, so a clock-skewed sender can't dodge this
+    if (this.rt.config.replies.skipMissedCommands && Date.parse(ci.chatItem.meta.itemTs) < this.rt.startedAt.getTime()) return
 
     // a running command waiting for this user's answer (ctx.awaitReply / ctx.confirm) gets it first
     const ref = chatRefOf(ci.chatInfo)

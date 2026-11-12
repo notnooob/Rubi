@@ -93,10 +93,11 @@ export class ChatData {
   private serialize<R>(key: string, fn: () => Promise<R>): Promise<R> {
     const prev = this.queues.get(key) ?? Promise.resolve()
     const next = prev.then(fn, fn)
-    this.queues.set(
-      key,
-      next.catch(() => undefined)
-    )
+    const settled = next.catch(() => undefined)
+    this.queues.set(key, settled)
+    void settled.finally(() => {
+      if (this.queues.get(key) === settled) this.queues.delete(key)
+    })
     return next
   }
 }

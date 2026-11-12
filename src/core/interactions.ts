@@ -132,6 +132,13 @@ export class Interactions {
     this.items.delete(id)
   }
 
+  /** End every interaction matching `predicate`; returns their ids. */
+  endWhere(predicate: (ix: Interaction) => boolean): string[] {
+    const ids = this.items.values().filter(predicate).map((ix) => ix.id)
+    for (const id of ids) this.items.delete(id)
+    return ids
+  }
+
   /** Route a `/vote <id> …` tap. The interaction is re-read inside its serial queue. */
   async button(id: string, args: string[], ctx: CommandContext<any>): Promise<string | undefined> {
     if (!this.accepting) throw new CommandError("The bot is shutting down.")

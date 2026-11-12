@@ -35,11 +35,12 @@ Commands (one file each in `data/commands/<category>/`; the folder is the catego
 - **Web:** `/reddit` (alias `/r`) `/x` (aliases `/twitter`, `/tweet`) `/deals` `/weather` `/wiki` `/define` `/currency` `/crypto` `/status` `/dns` `/github` `/npm` `/country` `/holidays` `/hn`
 - **Fun:** `/8ball` `/coinflip` `/rps` `/trivia` (including `tournament`) `/wyr` `/joke` `/fact` `/quote` `/xkcd`
 - **Groups:** `/groupinfo` `/members` `/rules` `/welcome` `/event` `/link` `/antispam` `/groupmenu`
-- **Moderation:** `/kick` `/role` `/block` `/unblock` `/warn` `/warnings` `/unwarn` `/delete`
+- **Moderation:** `/kick` `/role` `/block` (optional duration) `/unblock` `/warn` `/warnings` `/unwarn` `/delete` `/purge`
 - **Admin** (bot admins): `/reload` `/stats` `/groups` `/leave` `/broadcast` `/join`
 - **System** (hidden; buttons send these): `/vote` `/page` `/confirm` `/cancel`
 
-Events (`data/events/`): auto-join + greeting, then a `/groupmenu` tip in groups without the menu (`groups.ts`), custom welcome for new members (`members.ts`), anti-spam (`antispam.ts`).
+Events (`data/events/`): auto-join + greeting, then a `/groupmenu` tip in groups without the menu (`groups.ts`), custom welcome for new members (`members.ts`), anti-spam (`antispam.ts`),
+and cleanup of jobs/interactions for chats Rubi left and reminders of members who left (`cleanup.ts`).
 
 ## Tappable commands, buttons and groups (read before writing replies)
 
@@ -116,6 +117,7 @@ data/
     groups.ts          ← auto-join group invitations, greet on join + /groupmenu tip (groupMenuTip)
     members.ts         ← custom /welcome for new members
     antispam.ts        ← /antispam: delete links from brand-new members
+    cleanup.ts         ← forgetChat on deletedMemberUser / groupDeleted / contactDeletedByContact / leftMember / deletedMember
 src/
   index.ts             ← entry: config → Rubi.start(), signals, fatal error reporting
   config.ts            ← RubiConfig + env parsing (.env auto-loaded); welcome message lives here
@@ -139,7 +141,8 @@ src/
     http.ts            ← Http: fetch with timeouts, size caps, friendly errors, proxy/Tor, SSRF guard
     data.ts            ← ChatData: per-group/contact settings in SimpleX customData (GroupSettings type)
     store.ts           ← Store: JSON key-value file (storage/rubi-state.json)
-    scheduler.ts       ← Scheduler + defineJob: persistent jobs (reminders, trivia reveal)
+    scheduler.ts       ← Scheduler + defineJob: persistent jobs (reminders, trivia reveal); handlers may return a next due time
+    forget.ts          ← forgetChat: drop a chat's jobs + interactions (or one member's reminders)
     interactions.ts    ← Interactions + defineInteraction: reaction/button messages; REACTIONS
     prompts.ts         ← Prompts: ctx.awaitReply / ctx.confirm waiting for a user's next message
     pages.ts           ← Pages: paginated lists with ◀ ▶ buttons
@@ -156,7 +159,7 @@ src/
     format.ts          ← SimpleX markdown helpers (bold, code, bar, mention, duration…)
     ui.ts              ← chat-aware commands/buttons: ctx.ui, makeUi, commandsTappable (see "Tappable commands")
     chat.ts            ← chatRefOf, chatName, itemText … (no native import)
-    time.ts            ← parseDuration, parseWhen ("10m", "18:30", "tomorrow 9am"), formatDateTime
+    time.ts            ← parseDuration, parseWhen ("10m", "18:30", "tomorrow 9am"), parseRepeat/nextRepeat ("every day 9:00"), formatDateTime
     calc.ts            ← safe expression evaluator (no eval)
     units.ts           ← offline /convert units, aliases and affine temperature conversions
     links.ts           ← offline tracking-parameter cleaning and URL extraction
@@ -186,7 +189,8 @@ command menu from the registry), the address (auto-accept, welcome message) and 
 Event subscribers are passed *into* `bot.run`, so nothing is missed. The `EventBus` holds events until the runtime is ready.
 
 **Message flow** (`Dispatcher`): `newChatItems` → only `rcvMsgContent` from `directRcv`/`groupRcv`
-(skips deleted items, members blocked by an admin, and users' live messages until they're finalized) →
+(skips deleted items, members blocked by an admin, users' live messages until they're finalized, and, with
+`RUBI_SKIP_MISSED_COMMANDS` (default on), messages whose `meta.itemTs` is before `rt.startedAt`, i.e. sent while Rubi was offline) →
 `parseCommand` (`/kw args`, also the `/'kw args'` form) → registry lookup (unknown → "did you mean") →
 scope → permission → bot role → anti-flood → cooldown → `parseArgs` → optional live placeholder → `run`
 with timeout → reply (a returned string/MsgContent is sent as the reply) → errors become user messages.
@@ -231,7 +235,11 @@ Everything below is exported from `src/sdk.ts` and/or available on `ctx` / `rt`.
   batched and saved atomically. Use it for state that isn't one chat's setting.
 - **Scheduler:** call `defineJob<P>("kind", async (job, rt) => …)` at module load, then
   `rt.scheduler.schedule("kind", at, payload)`. Jobs survive restarts and are run once.
-  Also: `.list(filter)` and `.cancel(id)`. Payloads must be JSON (store a `ChatRef`, not objects with methods).
+  Also: `.list(filter)`, `.cancel(id)` and `.cancelWhere(fn)`. Payloads must be JSON (store a `ChatRef`, not objects with methods).
+  A handler that returns a number (epoch ms) runs again at that time under the same id (recurring reminders); a job
+  cancelled while it runs stays cancelled. Jobs that failed 3 times are kept 7 days, then deleted.
+  Put the chat in `payload.ref` (or an interaction id in `payload.id`): `forgetChat(rt, ref)` then removes the job when
+  Rubi leaves or loses that chat. `forgetChat(rt, ref, groupMemberId)` removes only that member's `reminder` jobs.
 - **Buttons:** `ctx.ui.button("🔁", "roll", "2d6")` gives `🔁 /'roll 2d6'`, a tappable command that sends instantly (DMs, and groups
   with `/groupmenu`). `ctx.ui.buttons([...])` makes a row. SimpleX has no inline keyboards, so buttons are just commands.
   See "Tappable commands" for when they're omitted or shown as code.
@@ -274,10 +282,15 @@ Everything below is exported from `src/sdk.ts` and/or available on `ctx` / `rt`.
 - **Personal/group organization:** `/prefs` stores DM-only weather/country/currency defaults; `/todo` stores bounded
   personal or group tasks; `/event` creates one-off visible group RSVPs with a scheduled reminder; `/cleanlink` removes
   common tracking parameters without opening the URL; `/time at` converts an explicit ISO instant across IANA zones.
-- **Time:** `parseWhen("tomorrow 9:00 call mom", now, tz)` gives `{at, rest}`; also `parseDuration("1h30m")`,
+- **Time:** `parseWhen("tomorrow 9:00 call mom", now, tz)` gives `{at, rest}`; `parseRepeat("every mon 18:00 gym", now, tz)`
+  gives `{at, rest, repeat}` (intervals ≥ 1h; day/weekday need a clock) and `nextRepeat(repeat, prevAt, now, tz)` the next
+  run (wall-clock, so DST-safe; missed runs skipped); also `parseDuration("1h30m")`,
   `formatDateTime(at, tz)` and `fmt.relative(at)`.
 - **Moderation:** `assertCanModerate(ctx, target, "kick")` checks not self, not the bot, and that both the invoker's and the
   bot's roles are high enough. `await moderate(() => ctx.chat.api…())` maps chat-core role errors to friendly messages.
+  `/block @x 10m` schedules an `unblock` job (cancelled by `/unblock`). `/purge N [@member]` reads recent history with
+  `ctx.chat.apiGetChat(T.ChatType.Group, id, count)` (typed `any` by the library; cast to `T.AChat`) and only deletes
+  messages whose author ranks below both the invoker and Rubi, since chat core rejects the whole batch otherwise.
 - **Places:** `geocode(ctx.http, "Oslo")`, `placeLabel`, `isTimeZone`, `utcOffset`, `weatherCode`.
 - `ctx.fail()` / `ctx.usageError()` return `never`. Write `return ctx.fail("…")` so TypeScript narrows types after it.
 

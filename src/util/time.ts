@@ -1,3 +1,5 @@
+import {capitalize, duration} from "./format"
+
 /**
  * Time parsing for commands like /remind.
  *
@@ -106,4 +108,72 @@ function zonedTime(now: number, h: number, m: number, dayOffset: number, timeZon
     return Date.UTC(w.y, w.mo - 1, w.d, w.h, w.mi) - guess
   })()
   return guess - offset
+}
+
+/** How a recurring reminder repeats: a fixed interval, or a wall-clock time daily / on one weekday (0 = Sunday). */
+export type Repeat = {ms: number} | {clock: string; weekday?: number}
+
+const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+const MIN_REPEAT_MS = 3_600_000
+const CLOCK = /^\d{1,2}(:\d{2})?(am|pm)?$/i
+
+/** "mon" / "monday" → 1 */
+function weekdayIndex(word: string): number | undefined {
+  const w = word.toLowerCase()
+  const i = WEEKDAYS.findIndex((d) => w === d || w === d.slice(0, 3))
+  return i < 0 ? undefined : i
+}
+
+function weekdayIn(at: number, timeZone?: string): number {
+  return WEEKDAYS.indexOf(new Intl.DateTimeFormat("en-US", {timeZone, weekday: "long"}).format(at).toLowerCase())
+}
+
+/** Next occurrence of a clock time (on a weekday, if set) strictly after `after`. */
+function nextClock(clock: string, weekday: number | undefined, after: number, timeZone?: string): number | undefined {
+  let at = parseWhen(clock, after, timeZone)?.at
+  for (let i = 0; at !== undefined && weekday !== undefined && weekdayIn(at, timeZone) !== weekday && i < 7; i++) {
+    at = parseWhen(clock, at, timeZone)?.at
+  }
+  return at
+}
+
+/**
+ * "every 2h drink water", "every day 9:00 standup", "every monday 18:00 gym" → first due time, rest, repeat.
+ * Intervals must be at least an hour. Undefined if `input` isn't a valid "every …".
+ */
+export function parseRepeat(input: string, now = Date.now(), timeZone?: string): {at: number; rest: string; repeat: Repeat} | undefined {
+  const words = input.trim().split(/\s+/)
+  if (words[0]?.toLowerCase() !== "every" || words.length < 2) return undefined
+  const day = words[1]!.toLowerCase()
+  const weekday = weekdayIndex(day)
+  if (day === "day" || day === "daily" || weekday !== undefined) {
+    const clock = words[2]
+    // a bare "9" is not a time (same rule as parseWhen)
+    if (!clock || !CLOCK.test(clock) || !/[:apm]/i.test(clock)) return undefined
+    const at = nextClock(clock, weekday, now, timeZone)
+    if (at === undefined) return undefined
+    return {at, rest: words.slice(3).join(" "), repeat: weekday === undefined ? {clock} : {clock, weekday}}
+  }
+  for (let k = Math.min(words.length, 7); k > 1; k--) {
+    const ms = parseDuration(words.slice(1, k).join(" "))
+    if (ms) return ms < MIN_REPEAT_MS ? undefined : {at: now + ms, rest: words.slice(k).join(" "), repeat: {ms}}
+  }
+  return undefined
+}
+
+/** When a repeating reminder that was due at `prevAt` runs next (after `now`; missed runs are skipped). */
+export function nextRepeat(repeat: Repeat, prevAt: number, now = Date.now(), timeZone?: string): number | undefined {
+  if ("ms" in repeat) {
+    let at = prevAt + repeat.ms
+    if (at <= now) at += Math.ceil((now - at + 1) / repeat.ms) * repeat.ms
+    return at
+  }
+  return nextClock(repeat.clock, repeat.weekday, Math.max(prevAt, now), timeZone)
+}
+
+/** "every 2h", "every day at 9:00", "every Monday at 18:00". */
+export function describeRepeat(repeat: Repeat): string {
+  if ("ms" in repeat) return `every ${duration(repeat.ms)}`
+  const day = repeat.weekday === undefined ? "day" : capitalize(WEEKDAYS[repeat.weekday]!)
+  return `every ${day} at ${repeat.clock}`
 }

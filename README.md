@@ -19,7 +19,7 @@ lookups can go through Tor.
 
 ## Features
 
-- **68 commands**, each in its own file, in 7 categories. `/help` builds itself from them and only shows what
+- **69 commands**, each in its own file, in 7 categories. `/help` builds itself from them and only shows what
   you're allowed to run in the current chat.
 - **Live replies:** slow commands answer straight away with a live message that turns into the result
   (and jokes reveal their punchline live).
@@ -38,9 +38,9 @@ lookups can go through Tor.
   sends the game artwork and deal details in one message.
 - **Personal and group organization:** `/prefs` saves DM defaults, `/todo` maintains small chat task lists, `/event`
   handles visible group RSVPs, and `/cleanlink` removes common tracking parameters without opening URLs.
-- **Group moderation** based on SimpleX member roles: kick, roles, block, warnings with an automatic removal limit,
-  delete, anti-spam for new members, welcome messages and rules.
-- **Reminders** that survive restarts, in DMs and groups. Only the person who made a poll or reminder can close or
+- **Group moderation** based on SimpleX member roles: kick, roles, block (optionally for a set time), warnings with an
+  automatic removal limit, delete, purge of recent messages, anti-spam for new members, welcome messages and rules.
+- **Reminders** that survive restarts, in DMs and groups, once or repeating (`/remind every day 9:00 standup`). Only the person who made a poll or reminder can close or
   cancel it.
 - **Tappable commands:** in DMs, commands in Rubi's replies are buttons. In groups they show as `code`, unless the
   group enables Rubi's command menu (see [Using Rubi in groups](#using-rubi-in-groups)).
@@ -56,7 +56,7 @@ lookups can go through Tor.
 | 🌐 Web | `/reddit` `/x` `/deals` `/weather` `/wiki` `/define` `/currency` `/crypto` `/status` `/dns` `/github` `/npm` `/country` `/holidays` `/hn` |
 | 🎲 Fun | `/8ball` `/coinflip` `/rps` `/trivia` `/wyr` `/joke` `/fact` `/quote` `/xkcd` |
 | 👥 Groups | `/groupinfo` `/members` `/rules` `/welcome` `/event` `/link` `/antispam` `/groupmenu` |
-| 🛡 Moderation | `/kick` `/role` `/block` `/unblock` `/warn` `/warnings` `/unwarn` `/delete` (reply to a message) |
+| 🛡 Moderation | `/kick` `/role` `/block` `/unblock` `/warn` `/warnings` `/unwarn` `/delete` (reply to a message) `/purge` |
 | ⚙️ Admin | `/reload` `/stats` `/groups` `/leave` `/broadcast` `/join` (bot admins only) |
 
 In chat, send `/help <category>` for descriptions, or `/help <command>` for usage, arguments and examples.
@@ -163,6 +163,7 @@ All settings are environment variables, read from `.env` in the folder you start
 | `RUBI_UNKNOWN_COMMAND_REPLY` | `direct` | Answer unknown commands in `always`, `direct` (DMs only) or `never`. |
 | `RUBI_NON_COMMAND_HINT` | `true` | In DMs, answer plain messages with a `/help` hint. |
 | `RUBI_MENTION_HINT` | `true` | In groups, answer an @mention of Rubi with a `/help` hint (replies to Rubi never trigger it). |
+| `RUBI_SKIP_MISSED_COMMANDS` | `true` | Ignore commands sent while Rubi was offline instead of answering them when it's back. |
 | `RUBI_DEFAULT_COOLDOWN` | `2` | Seconds between uses of the same command, per person. |
 | `RUBI_FLOOD_MAX` / `RUBI_FLOOD_WINDOW_MS` | `6` / `15000` | Anti-flood: at most this many commands per person per window. |
 | `RUBI_HTTP_PROXY` | *(none)* | Send web lookups through a proxy, e.g. `socks5://127.0.0.1:9050` for Tor. |
@@ -181,7 +182,7 @@ Set `RUBI_HTTP_PROXY` to a Tor SOCKS proxy to hide it.
    hi, and explains how to turn on its command menu.
 2. Give Rubi the role that matches what you want it to do (member list → Rubi → role):
    - **member**: everything except moderation
-   - **moderator**: also `/block`, `/delete` and anti-spam
+   - **moderator**: also `/block`, `/delete`, `/purge` and anti-spam
    - **admin**: also `/kick`, `/role`, `/link` and automatic removal at the warning limit
    - **owner**: also `/groupmenu`, which makes commands **tappable** in the group and adds Rubi's commands to
      the `/` menu for all members

@@ -50,6 +50,8 @@ export class FakeChat {
   groupCustom = new Map<number, object | undefined>()
   contactCustom = new Map<number, object | undefined>()
   groupLink: string | undefined
+  /** Chat history returned by apiGetChat (oldest first). */
+  chatItems: T.ChatItem[] = []
   private nextId = 1000
 
   async sendChatCmd(cmd: string): Promise<any> {
@@ -118,6 +120,10 @@ export class FakeChat {
   async apiDeleteMemberChatItem(groupId: number, ids: number[]): Promise<[]> {
     this.call("apiDeleteMemberChatItem", groupId, ids)
     return []
+  }
+  async apiGetChat(chatType: string, chatId: number, count: number): Promise<any> {
+    this.call("apiGetChat", chatType, chatId, count)
+    return {chatInfo: {}, chatItems: this.chatItems.slice(-count), chatStats: {}}
   }
   async apiGetGroupLinkStr(groupId: number): Promise<string> {
     if (!this.groupLink) throw new Error("no group link")

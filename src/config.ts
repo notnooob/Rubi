@@ -120,6 +120,8 @@ export interface RubiConfig {
     mentionHintInGroups: boolean
     /** Show internal error details to bot admins when a command crashes. */
     errorDetailsToBotAdmins: boolean
+    /** Ignore messages sent while Rubi was offline (delivered when it starts again) instead of answering them late. */
+    skipMissedCommands: boolean
   }
   limits: {
     /** Default per-user command cooldown in seconds (commands can override). */
@@ -187,6 +189,7 @@ export function loadConfig(): RubiConfig {
       nonCommandHintInDirect: bool("RUBI_NON_COMMAND_HINT", true),
       mentionHintInGroups: bool("RUBI_MENTION_HINT", true),
       errorDetailsToBotAdmins: bool("RUBI_ERROR_DETAILS_TO_ADMINS", true),
+      skipMissedCommands: bool("RUBI_SKIP_MISSED_COMMANDS", true),
     },
     limits: {
       defaultCooldown: int("RUBI_DEFAULT_COOLDOWN", 2),
