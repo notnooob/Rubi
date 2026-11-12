@@ -9,6 +9,14 @@
 Utilities, web lookups, Reddit and X posts, polls, reminders, games and group moderation in one bot,<br>
 built on the official [`simplex-chat`](https://www.npmjs.com/package/simplex-chat) Node.js library.
 
+<p>
+  <a href="https://github.com/notnooob/Rubi/wiki"><img alt="Docs: wiki" src="https://img.shields.io/badge/docs-wiki-blue?logo=github"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/notnooob/Rubi"></a>
+  <a href="package.json"><img alt="Version" src="https://img.shields.io/github/package-json/v/notnooob/Rubi"></a>
+  <a href="https://github.com/notnooob/Rubi/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/notnooob/Rubi"></a>
+  <a href="https://www.npmjs.com/package/simplex-chat"><img alt="simplex-chat version" src="https://img.shields.io/github/package-json/dependency-version/notnooob/Rubi/simplex-chat"></a>
+</p>
+
 </div>
 
 ---

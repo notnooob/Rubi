@@ -94,7 +94,8 @@ and the types are in `node_modules/@simplex-chat/types/dist/*.d.ts`.
 
 ```
 AGENTS.md              ← you are here
-README.md              ← user-facing overview, setup, configuration
+README.md              ← user-facing overview, setup, configuration; shields.io badges under the title (docs, license,
+                         version + simplex-chat read live from package.json on GitHub, last commit)
 LICENSE                ← AGPL-3.0 (same as simplex-chat)
 .env.example           ← every config variable, documented
 package.json           ← scripts: dev, build, start, test, typecheck, check, docs:check, docs:sync, guide, avatar, setup:native
@@ -445,5 +446,7 @@ Don't handle `newChatItems` for commands, because the dispatcher already does th
 
 - `npm run dev`: run from TypeScript (tsx). `npm run build && npm start`: compiled (`dist/`).
 - `npm run check`: typecheck + tests. **Keep it green.** Tests use `FakeChat` and need no native library or external network.
+- Versioning: semver, still 0.x before the public launch. Bump the minor version (`npm version <x.y.0> --no-git-tag-version`,
+  which updates package.json and package-lock.json) for each feature batch, the patch version for fixes. `/about` reads it.
 - Don't commit `storage/` (the chat database holds the bot's identity and keys) or `.env`.
 - Don't change the welcome message text without being asked. It's specified as exactly `Hi, I'm Rubi. Send /help.`
