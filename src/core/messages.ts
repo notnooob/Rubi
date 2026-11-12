@@ -3,6 +3,7 @@ import type {api} from "simplex-chat"
 import type {RubiConfig} from "../config"
 import {duration, italic} from "../util/format"
 import {textContent} from "../util/chat"
+import {chatErrorType} from "./errors"
 import type {Logger} from "./logger"
 
 /**
@@ -100,13 +101,24 @@ export class Messenger {
     return new BotMessage(this, ref, item.chatItem.meta.itemId, caption)
   }
 
-  /** Send pre-composed messages (files, images, links...). Returns the created chat items. */
+  /**
+   * Send pre-composed messages (files, images, links...). Returns the created chat items.
+   * If a quoted message is gone (deleted, e.g. by /purge or its author), the messages are sent without the quote.
+   */
   async sendComposed(ref: T.ChatRef, composedMessages: T.ComposedMessage[], opts: Pick<SendOptions, "live" | "ttl"> = {}): Promise<T.AChatItem[]> {
-    const r = await this.chat.sendChatCmd(
-      CC.APISendMessages.cmdString({sendRef: ref, composedMessages, liveMessage: !!opts.live, ttl: opts.ttl, signMessages: false})
-    )
-    if (r.type === "newChatItems") return r.chatItems
-    throw new ChatResponseError("error sending message", r)
+    const send = async (messages: T.ComposedMessage[]) => {
+      const r = await this.chat.sendChatCmd(
+        CC.APISendMessages.cmdString({sendRef: ref, composedMessages: messages, liveMessage: !!opts.live, ttl: opts.ttl, signMessages: false})
+      )
+      if (r.type === "newChatItems") return r.chatItems
+      throw new ChatResponseError("error sending message", r)
+    }
+    try {
+      return await send(composedMessages)
+    } catch (e) {
+      if (chatErrorType(e) !== "invalidQuote" || !composedMessages.some((m) => m.quotedItemId !== undefined)) throw e
+      return send(composedMessages.map((m) => ({...m, quotedItemId: undefined})))
+    }
   }
 
   /** Edit a sent message. `live: true` keeps it in the live (typing) state. */

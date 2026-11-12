@@ -52,12 +52,17 @@ export class FakeChat {
   groupLink: string | undefined
   /** Chat history returned by apiGetChat (oldest first). */
   chatItems: T.ChatItem[] = []
+  /** Item ids deleted so far; quoting one fails with invalidQuote, as in chat core. */
+  deleted = new Set<number>()
   private nextId = 1000
 
   async sendChatCmd(cmd: string): Promise<any> {
     let m: RegExpMatchArray | null
     if ((m = cmd.match(/^\/_send (\S+)( live=on)?(?: ttl=\d+)?(?: sign=on)? json ([\s\S]*)$/))) {
       const msgs = JSON.parse(m[3]!) as T.ComposedMessage[]
+      if (msgs.some((msg) => msg.quotedItemId !== undefined && this.deleted.has(msg.quotedItemId))) {
+        throw Object.assign(new Error("Chat command error"), {chatError: {type: "errorStore", storeError: {type: "invalidQuote"}}})
+      }
       const chatItems = msgs.map((msg) => {
         const itemId = this.nextId++
         const mc = msg.msgContent as any
@@ -119,6 +124,7 @@ export class FakeChat {
   }
   async apiDeleteMemberChatItem(groupId: number, ids: number[]): Promise<[]> {
     this.call("apiDeleteMemberChatItem", groupId, ids)
+    for (const id of ids) this.deleted.add(id)
     return []
   }
   async apiGetChat(chatType: string, chatId: number, count: number): Promise<any> {

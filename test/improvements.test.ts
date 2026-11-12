@@ -228,6 +228,8 @@ describe("/purge", () => {
     assert.deepEqual(deletes[0], ["apiDeleteMemberChatItem", 5, [13, 14]], "the admin's message is skipped")
     assert.ok(h.chat.sent.some((s) => s.kind === "delete" && s.itemId === 12), "own message deleted")
     assert.match(h.chat.last()!.text!, /Deleted 3 messages/)
+    assert.equal(h.chat.last()!.quote, undefined, "the /purge message is gone, so the reply can't quote it")
+    assert.equal(h.rt.stats.commandsFailed, 0)
   })
 
   it("only takes one member's messages with @member", async () => {
