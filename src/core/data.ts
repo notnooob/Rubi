@@ -24,6 +24,10 @@ export interface GroupSettings {
   warnLimit?: number
   tasks?: TodoTask[]
   events?: GroupEvent[]
+  /** Banned words/phrases (lowercase, `*` wildcard): messages containing one are deleted (/filter). */
+  filter?: string[]
+  /** Minimum time between two messages of a member, in ms (/slowmode). */
+  slowmodeMs?: number
 }
 
 export interface ContactSettings {

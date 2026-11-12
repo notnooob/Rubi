@@ -72,6 +72,8 @@ export class Dispatcher {
   /** Users' live messages still being typed — handled when they are finalized. */
   private readonly typing = new Set<string>()
   private accepting = true
+  private missed = 0
+  private missedTimer: NodeJS.Timeout | undefined
 
   constructor(private readonly rt: Runtime) {
     this.log = rt.log.child("dispatch")
@@ -107,7 +109,10 @@ export class Dispatcher {
     const text = itemText(ci.chatItem)?.trim()
     if (!text) return
     // itemTs of a received message is the relay server's time, so a clock-skewed sender can't dodge this
-    if (this.rt.config.replies.skipMissedCommands && Date.parse(ci.chatItem.meta.itemTs) < this.rt.startedAt.getTime()) return
+    if (this.rt.config.replies.skipMissedCommands && Date.parse(ci.chatItem.meta.itemTs) < this.rt.startedAt.getTime()) {
+      if (parseCommand(text, this.rt.config.prefix)) this.countMissed()
+      return
+    }
 
     // a running command waiting for this user's answer (ctx.awaitReply / ctx.confirm) gets it first
     const ref = chatRefOf(ci.chatInfo)
@@ -119,6 +124,17 @@ export class Dispatcher {
       return
     }
     void this.execute(ci, parsed)
+  }
+
+  /** Missed commands arrive in a burst after startup: log one total once it's quiet for a few seconds. */
+  private countMissed(): void {
+    this.missed++
+    clearTimeout(this.missedTimer)
+    this.missedTimer = setTimeout(() => {
+      this.log.info(`skipped ${this.missed} command(s) sent while I was offline (RUBI_SKIP_MISSED_COMMANDS)`)
+      this.missed = 0
+    }, 5_000)
+    this.missedTimer.unref()
   }
 
   /** Hints for plain messages: in DMs, and in groups when the bot is @mentioned. */

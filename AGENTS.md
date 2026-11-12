@@ -34,13 +34,13 @@ Commands (one file each in `data/commands/<category>/`; the folder is the catego
   `/base64` `/timestamp` (+ hidden helpers `/unremind`, `/endpoll`)
 - **Web:** `/reddit` (alias `/r`) `/x` (aliases `/twitter`, `/tweet`) `/deals` `/weather` `/wiki` `/define` `/currency` `/crypto` `/status` `/dns` `/github` `/npm` `/country` `/holidays` `/hn`
 - **Fun:** `/8ball` `/coinflip` `/rps` `/trivia` (including `tournament`) `/wyr` `/joke` `/fact` `/quote` `/xkcd`
-- **Groups:** `/groupinfo` `/members` `/rules` `/welcome` `/event` `/link` `/antispam` `/groupmenu`
+- **Groups:** `/groupinfo` `/members` `/rules` `/welcome` `/event` `/link` `/antispam` `/filter` `/slowmode` `/seen` `/afk` `/groupmenu`
 - **Moderation:** `/kick` `/role` `/block` (optional duration) `/unblock` `/warn` `/warnings` `/unwarn` `/delete` `/purge`
 - **Admin** (bot admins): `/reload` `/stats` `/groups` `/leave` `/broadcast` `/join`
 - **System** (hidden; buttons send these): `/vote` `/page` `/confirm` `/cancel`
 
 Events (`data/events/`): auto-join + greeting, then a `/groupmenu` tip in groups without the menu (`groups.ts`), custom welcome for new members (`members.ts`), anti-spam (`antispam.ts`),
-and cleanup of jobs/interactions for chats Rubi left and reminders of members who left (`cleanup.ts`).
+banned words + slow mode (`automod.ts`), last-seen and AFK replies (`activity.ts`), and cleanup of jobs/interactions for chats Rubi left and reminders of members who left (`cleanup.ts`).
 
 ## Tappable commands, buttons and groups (read before writing replies)
 
@@ -117,6 +117,8 @@ data/
     groups.ts          ← auto-join group invitations, greet on join + /groupmenu tip (groupMenuTip)
     members.ts         ← custom /welcome for new members
     antispam.ts        ← /antispam: delete links from brand-new members
+    automod.ts         ← /filter banned words + /slowmode: delete members' messages (below moderator); automod() exported for tests
+    activity.ts        ← /seen last-post times, /afk mention replies + welcome back; trackActivity() exported for tests
     cleanup.ts         ← forgetChat on deletedMemberUser / groupDeleted / contactDeletedByContact / leftMember / deletedMember
 src/
   index.ts             ← entry: config → Rubi.start(), signals, fatal error reporting
@@ -163,6 +165,7 @@ src/
     calc.ts            ← safe expression evaluator (no eval)
     units.ts           ← offline /convert units, aliases and affine temperature conversions
     links.ts           ← offline tracking-parameter cleaning and URL extraction
+    wordfilter.ts      ← /filter: parseWordList, findBlocked (whole words, phrases, * wildcard), matchesPattern
     qr.ts              ← QR code → inline image data URI
     moderation.ts      ← assertCanModerate + moderate() (role checks, friendly chat-core errors)
     media.ts           ← thumbnails (sharp), ffmpeg audio merge / frames, download folders (storage/media)
@@ -178,6 +181,7 @@ test/
   deals.test.ts        ← /deals: CheapShark data, best deals, live image+caption and text fallbacks
   tournament.test.ts   ← /wyr voting and multi-round /trivia tournament scores and jobs
   improvements.test.ts ← preferences, tasks, clean links, future time, events and health diagnostics
+  moderation-tools.test.ts ← /filter, /slowmode, /seen + /afk, /remind @member
 storage/               ← SQLite DB files, rubi-state.json, rubi.lock, media/ downloads (gitignored)
 ```
 
@@ -291,6 +295,18 @@ Everything below is exported from `src/sdk.ts` and/or available on `ctx` / `rt`.
   `/block @x 10m` schedules an `unblock` job (cancelled by `/unblock`). `/purge N [@member]` reads recent history with
   `ctx.chat.apiGetChat(T.ChatType.Group, id, count)` (typed `any` by the library; cast to `T.AChat`) and only deletes
   messages whose author ranks below both the invoker and Rubi, since chat core rejects the whole batch otherwise.
+- **Automod:** `/filter` (admins) keeps `GroupSettings.filter` (lowercase entries, comma-separated input, `*` wildcard,
+  whole-word matching; `remove` takes exact entries or `*` patterns; max 500). `/slowmode 30s` (admins) sets
+  `GroupSettings.slowmodeMs` (5s–6h); last-post times are in memory, measured with `meta.itemTs`, and commands don't
+  count. Both skip moderators+ and need Rubi to be a moderator. Notices are throttled to one per member per minute.
+- **Activity:** `rt.store` collections `seen` and `afk`, keyed `memberKey(groupId, groupMemberId)` (`g5:12`; types in
+  `data/commands/groups/afk.ts`). "Seen" is written at most once a minute per member. AFK ends on the member's next
+  message (except `/afk` itself). Messages sent while Rubi was offline update "seen" but get no AFK replies.
+  `forgetChat` deletes these records for a group, or for one member.
+- **Reminders for others:** `/remind @member …` (groups) stores the target as `name`/`memberId` and the creator as
+  `by`/`byMemberId`; the creator owns it (`userKey`). `forgetChat(rt, ref, id)` cancels reminders for *or* by that member.
+- **Startup log:** after "online", Rubi logs groups, scheduled jobs, open polls/games and failed jobs, and one total of
+  commands skipped by `RUBI_SKIP_MISSED_COMMANDS` once they've stopped arriving (5s quiet).
 - **Places:** `geocode(ctx.http, "Oslo")`, `placeLabel`, `isTimeZone`, `utcOffset`, `weatherCode`.
 - `ctx.fail()` / `ctx.usageError()` return `never`. Write `return ctx.fail("…")` so TypeScript narrows types after it.
 
@@ -343,6 +359,9 @@ Don't handle `newChatItems` for commands, because the dispatcher already does th
 - `ChatApi.apiUpdateChatItem` hard-codes `liveMessage: false` and drops the group chat scope, so it can't do live
   edits. Use `Messenger.update` / `LiveMessage`.
 - `ChatApi` event handlers are awaited one at a time. A slow handler delays all events.
+- Quoting a deleted message fails with `storeError` `invalidQuote` (e.g. a reply to a `/purge` or `/delete` command
+  that removed itself, or a reminder whose `/remind` message is gone). `Messenger.sendComposed` then resends without
+  the quote, so every reply path survives it. `FakeChat` refuses quotes of items deleted through it, the same way.
 - `bot.run` calls `process.exit()` on some setup failures, e.g. when `useBotProfile` is combined with custom
   `files/calls/voice/commands` preferences. Pass the command menu via `options.commands`, never via `profile.preferences`.
 - Importing `simplex-chat` at runtime loads the native addon. Core modules only `import type` from it.

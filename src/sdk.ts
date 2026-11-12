@@ -18,6 +18,7 @@ export {roleAtLeast, roleRank, isActiveMember, PERMISSION_LABEL, ROLE_ORDER} fro
 export type {Permission} from "./core/permissions"
 export {CATEGORIES, categoryIcon} from "./core/categories"
 export {CommandRegistry} from "./core/registry"
+export {parseCommand} from "./core/dispatcher"
 
 // utilities
 export {HttpError, isPrivateAddress} from "./core/http"
@@ -40,6 +41,7 @@ export {convertUnits, findUnit, formatUnitNumber, UnitError, unitReference} from
 export type {Unit, UnitCategory} from "./util/units"
 export {isIntegerNumeric, parseNumeric, NUMERIC_PATTERN} from "./util/number"
 export {cleanTrackingUrl, firstHttpUrl} from "./util/links"
+export {parseWordList, findBlocked, matchesPattern, MAX_FILTER_WORDS, MAX_FILTER_WORD_LENGTH} from "./util/wordfilter"
 export {geocode, placeLabel, isTimeZone, weatherCode, utcOffset} from "./services/geo"
 export type {Place} from "./services/geo"
 export {findCountry, countryByCode} from "./services/countries"

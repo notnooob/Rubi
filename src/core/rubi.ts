@@ -143,6 +143,7 @@ export class Rubi implements Runtime {
     void this.syncGroupMenus().catch((e) => this.log.warn("group menu sync failed:", describeError(e)))
 
     this.log.info(`${user.profile.displayName} is online (user #${user.userId}) — ${this.commands.all().length} command(s).`)
+    void this.logSummary().catch((e) => this.log.warn("startup summary failed:", describeError(e)))
     if (this.addressLink) this.log.info(`Connect: ${this.addressLink}`)
     if (cfg.botAdmins.length === 0) {
       this.log.info("No bot admins configured. Set RUBI_BOT_ADMINS=<contactId,...> — contact ids are logged as `contact #<id>` when users connect.")
@@ -209,7 +210,18 @@ export class Rubi implements Runtime {
     }
   }
 
-  /** Push the current command list to the bot profile (shown in the app's "/" menu). */
+  /** One log line with what Rubi is looking after: groups, scheduled jobs, open polls/games, failed jobs. */
+  private async logSummary(): Promise<void> {
+    // no contact count: apiListContacts loads every contact at once and can fail on large databases
+    const groups = await this.chat.apiListGroups(this.user.userId)
+    const interactions = Object.values(this.interactions.counts()).reduce((a, b) => a + b, 0)
+    const failed = this.scheduler.failedCount
+    this.log.info(
+      `${groups.length} group(s), ${this.scheduler.list().length} scheduled job(s), ` +
+        `${interactions} open poll(s)/game(s)${failed ? `, ${failed} failed job(s)` : ""}`
+    )
+  }
+
   /**
    * The bot's command menu, shrunk if needed so the whole profile (avatar, address link, menu) stays under
    * SimpleX's profile size limit. Logs a warning when it had to shrink.

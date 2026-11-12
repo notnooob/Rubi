@@ -15,7 +15,7 @@ export default defineCommand({
       items: mine.map(
         (j) =>
           `• ${fmt.bold(fmt.relative(j.at))} ${fmt.italic(formatDateTime(j.at, j.payload.timeZone))}${j.payload.repeat ? ` 🔁 ${describeRepeat(j.payload.repeat)}` : ""}\n` +
-          `  ${fmt.truncate(j.payload.text || "(no text)", 80)}  ${ctx.ui.button("✖", "unremind", j.id, {important: true})}`
+          `  ${j.payload.by ? `for ${fmt.bold(j.payload.name)}: ` : ""}${fmt.truncate(j.payload.text || "(no text)", 80)}  ${ctx.ui.button("✖", "unremind", j.id, {important: true})}`
       ),
       perPage: 8,
     })
