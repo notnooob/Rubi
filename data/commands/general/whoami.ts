@@ -15,7 +15,7 @@ export default defineCommand({
         `Member id: ${fmt.code(`#${s.member?.groupMemberId}`)}`,
         s.contactId !== undefined
           ? `Linked contact id: ${fmt.code(s.contactId)}`
-          : fmt.italic(`Not linked to a direct chat with me — DM me (${ctx.ui.cmd("whoami")}) to get your contact id.`),
+          : `${fmt.italic("Not linked to a direct chat with me. DM me")} ${ctx.ui.cmd("whoami")} ${fmt.italic("to get your contact id.")}`,
         ctx.isBotAdmin ? "⭐ You're a bot admin." : undefined
       )
     }

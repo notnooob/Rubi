@@ -51,7 +51,7 @@ export default defineCommand({
       return fmt.lines(
         tz ? `🕐 ${fmt.bold("Your time")} (${tz})\n${clock(tz)}` : undefined,
         `🌍 ${fmt.bold("UTC")}: ${clock("UTC")}`,
-        tz || !ctx.isDirect ? undefined : fmt.italic(`Tip: ${ctx.ui.cmd("time", "set <your city>")} saves your time zone.`)
+        tz || !ctx.isDirect ? undefined : `${fmt.italic("Tip:")} ${ctx.ui.cmd("time", "set <your city>")} ${fmt.italic("saves your time zone.")}`
       )
     }
 

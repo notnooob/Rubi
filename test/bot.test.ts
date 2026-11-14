@@ -66,7 +66,7 @@ describe("/help", () => {
     assert.match(text, /\*Examples:\* `\/remind 10m stretch`/)
     // owners get a tip about /groupmenu; with a menu, commands are tappable again
     await h.receive(groupMsg("/help", {role: T.GroupMemberRole.Owner, memberId: 4}))
-    assert.match(h.chat.last()!.text!, /make me a group owner and send `\/groupmenu`/)
+    assert.match(h.chat.last()!.text!, /make me a group owner and send_ `\/groupmenu` _to make/)
     await h.receive(groupMsg("/help", {menu: true, memberId: 5}))
     assert.match(h.chat.last()!.text!, /📖 \*General\* · \/'help general'/)
   })

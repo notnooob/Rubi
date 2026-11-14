@@ -62,7 +62,7 @@ function overview(ctx: CommandContext<any>, off: ReadonlySet<string>): string {
         : undefined
   const menuTip =
     ctx.isGroup && !ui.tappable && ctx.hasRole(T.GroupMemberRole.Owner)
-      ? fmt.italic(`Tip: make me a group owner and send ${ui.cmd("groupmenu")} to make commands tappable here.`)
+      ? `${fmt.italic("Tip: make me a group owner and send")} ${ui.cmd("groupmenu")} ${fmt.italic("to make commands tappable here.")}`
       : undefined
 
   return fmt.lines(
