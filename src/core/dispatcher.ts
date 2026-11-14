@@ -100,6 +100,8 @@ export class Dispatcher {
   private consider(ci: T.AChatItem): void {
     if (!this.accepting || !isIncomingMessage(ci)) return
     if (ci.chatItem.meta.itemLive) {
+      // live messages deleted before they're finished never come back, so don't let the set grow forever
+      if (this.typing.size > 10_000) this.typing.clear()
       this.typing.add(itemKey(ci))
       return
     }
@@ -191,7 +193,7 @@ export class Dispatcher {
   private async checkEnabled(ctx: CommandContext<any>, cmd: Command): Promise<void> {
     const g = ctx.group
     if (!g || cmd.hidden) return
-    const {disabled} = await this.rt.data.group(g).get()
+    const {disabled} = this.rt.data.group(g).peek()
     if (!disabled?.includes(cmd.name)) return
     // say so once per member and command every 10 minutes, then stay quiet: a turned-off game shouldn't become noise
     const tell = this.rt.limiter.throttle(`disabled:${g.groupId}:${ctx.sender.key}:${cmd.name}`, 600_000)
