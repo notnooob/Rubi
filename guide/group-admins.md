@@ -42,7 +42,7 @@ moderate members below them.
 |---|---|
 | Anyone | everyday commands, `/rules`, `/members`, `/groupinfo`, `/event`, `/seen`, `/afk`, `/warnings` (your own) |
 | Moderator | `/delete`, `/purge`, `/block`, `/unblock`, `/warn`, `/unwarn`, `/warnings @member` |
-| Admin | `/kick`, `/role`, `/link`, `/welcome`, `/rules set`, `/warn limit`, `/antispam`, `/filter`, `/slowmode`, `/toggle`, `/modlog` |
+| Admin | `/kick`, `/role`, `/link`, `/welcome`, `/rules set`, `/warn limit`, `/antispam`, `/filter`, `/slowmode`, `/toggle`, `/modlog`, `/feed add/remove` |
 | Owner | `/groupmenu` |
 
 | Rubi needs to be | For |
@@ -68,6 +68,19 @@ members whose role isn't above its own. You can't give a role higher than your o
   counts per role and the settings.
 - **Events and tasks:** members can create events (`/event`) and use a shared task list (`/todo`). See
   [Using Rubi](using-rubi.md#polls-games-and-events).
+
+## Feeds
+
+`/feed add <url>` makes Rubi post new entries of an RSS or Atom feed in the group. Rubi checks every 30 minutes and
+posts at most five new entries at a time. The URL can be the feed itself or a page that links to it:
+
+- blogs and news sites: the site's address is usually enough
+- GitHub releases: `https://github.com/<owner>/<repo>/releases.atom`
+- subreddits: `https://www.reddit.com/r/<name>/.rss`
+- YouTube channels and Mastodon profiles: the channel or profile page
+
+`/feed` lists the group's feeds with their ids (anyone can see it), and `/feed remove <id>` stops one. A group can
+follow up to 10 feeds. When a feed can't be fetched, Rubi keeps trying and `/feed` shows the error.
 
 ## Moderation toolkit
 
@@ -221,6 +234,7 @@ All of these are stored per group in Rubi's SimpleX database, and `/groupinfo` s
 | Slow mode | `/slowmode <interval>`, `/slowmode off` | off |
 | Warning limit | `/warn limit <0–50>` | 3 |
 | Turned-off commands | `/toggle on/off …` | none |
+| Feeds | `/feed add/remove` | none |
 | Moderation log recipients | `/modlog on/off` (each admin for themselves) | none |
 
 ## Troubleshooting

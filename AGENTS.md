@@ -32,9 +32,9 @@ Commands (one file each in `data/commands/<category>/`; the folder is the catego
 - **General:** `/help` `/whoami` `/ping` `/about` `/invite`
 - **Utility:** `/remind` `/reminders` `/poll` `/calc` `/convert` `/prefs` `/todo` `/cleanlink` `/roll` `/choose` `/time` `/qr` `/uuid` `/password` `/hash`
   `/base64` `/timestamp` (+ hidden helpers `/unremind`, `/endpoll`)
-- **Web:** `/reddit` (alias `/r`) `/x` (aliases `/twitter`, `/tweet`) `/deals` `/weather` `/wiki` `/define` `/currency` `/crypto` `/status` `/dns` `/github` `/npm` `/country` `/holidays` `/hn`
-- **Fun:** `/8ball` `/coinflip` `/rps` `/trivia` (including `tournament`) `/wyr` `/joke` `/fact` `/quote` `/xkcd`
-- **Groups:** `/groupinfo` `/members` `/rules` `/welcome` `/event` `/link` `/antispam` `/filter` `/slowmode` `/toggle` `/seen` `/afk` `/groupmenu`
+- **Web:** `/reddit` (alias `/r`) `/x` (aliases `/twitter`, `/tweet`) `/deals` `/weather` `/wiki` `/define` `/currency` `/crypto` `/status` `/dns` `/whois` `/github` `/npm` `/country` `/holidays` `/hn`
+- **Fun:** `/8ball` `/coinflip` `/rps` `/trivia` (including `tournament`) `/wyr` `/hangman` `/ttt` `/word` `/joke` `/fact` `/quote` `/xkcd`
+- **Groups:** `/groupinfo` `/members` `/rules` `/welcome` `/event` `/feed` `/link` `/antispam` `/filter` `/slowmode` `/toggle` `/seen` `/afk` `/groupmenu`
 - **Moderation:** `/kick` `/role` `/block` (optional duration) `/unblock` `/warn` `/warnings` `/unwarn` `/delete` `/purge` `/modlog`
 - **Admin** (bot admins): `/reload` `/stats` `/groups` `/leave` `/broadcast` `/join`
 - **System** (hidden; buttons send these): `/vote` `/page` `/confirm` `/cancel`
@@ -94,8 +94,9 @@ and the types are in `node_modules/@simplex-chat/types/dist/*.d.ts`.
 
 ```
 AGENTS.md              ← you are here
-README.md              ← user-facing overview, setup, configuration; shields.io badges under the title (docs, license,
-                         version + simplex-chat read live from package.json on GitHub, last commit)
+README.md              ← concise landing page: logo, badges (docs, license, version + simplex-chat read live from package.json
+                         on GitHub, last commit), features, getting started, command table, key config, docs links,
+                         development. Details belong in guide/; scripts/check-docs.mjs needs "**N commands**" + every command
 LICENSE                ← AGPL-3.0 (same as simplex-chat)
 .env.example           ← every config variable, documented
 package.json           ← scripts: dev, build, start, test, typecheck, check, docs:check, docs:sync, guide, avatar, setup:native
@@ -112,7 +113,7 @@ docs/                  ← GENERATED SimpleX API docs (see above)
 guide/                 ← USER DOCS, published as the GitHub wiki (README → Home; edit here, never in the wiki):
                          hand-written except commands.md: README index, using-rubi.md (members),
                          group-admins.md (setup, roles, moderation, filter/slowmode/modlog/toggle, settings table),
-                         bot-admins.md (operators), commands.md (GENERATED reference: `npm run guide`)
+                         bot-admins.md (installing, full configuration table, operating), commands.md (GENERATED reference: `npm run guide`)
 data/
   commands/            ← ONE FILE PER COMMAND (auto-loaded, recursive; subfolder = default category)
     help.ts            ← /help — dynamic command list + per-command details
@@ -151,7 +152,7 @@ src/
     data.ts            ← ChatData: per-group/contact settings in SimpleX customData (GroupSettings type)
     store.ts           ← Store: JSON key-value file (storage/rubi-state.json)
     scheduler.ts       ← Scheduler + defineJob: persistent jobs (reminders, trivia reveal); handlers may return a next due time
-    forget.ts          ← forgetChat: drop a chat's jobs + interactions (or one member's reminders)
+    forget.ts          ← forgetChat: drop a chat's jobs + interactions + /word data (or one member's reminders)
     interactions.ts    ← Interactions + defineInteraction: reaction/button messages; REACTIONS
     prompts.ts         ← Prompts: ctx.awaitReply / ctx.confirm waiting for a user's next message
     pages.ts           ← Pages: paginated lists with ◀ ▶ buttons
@@ -164,6 +165,7 @@ src/
     cheapshark.ts      ← /deals: CheapShark game search, every current store deal, historical low and store names
     reddit.ts          ← /reddit: link parsing, share-link unshortening, Arctic Shift API, Reddit→SimpleX markdown, post media
     x.ts               ← /x: link parsing, FxTwitter API, post/quote/reply/poll/community-note formatting, post media
+    feeds.ts           ← /feed: regex RSS 2.0 / RSS 1.0 / Atom parser (parseFeed, xmlText), findFeedLink (page → feed), loadFeed
   util/
     format.ts          ← SimpleX markdown helpers (bold, code, bar, mention, duration…)
     ui.ts              ← chat-aware commands/buttons: ctx.ui, makeUi, commandsTappable (see "Tappable commands")
@@ -188,6 +190,8 @@ test/
   convert.test.ts      ← /convert: offline unit aliases, conversions, parsing and command replies
   deals.test.ts        ← /deals: CheapShark data, best deals, live image+caption and text fallbacks
   tournament.test.ts   ← /wyr voting and multi-round /trivia tournament scores and jobs
+  games.test.ts        ← /hangman, /ttt (turns, wins, stop), /word (marks, per-player limit, shared board, scores)
+  feed.test.ts         ← feed parsing + discovery, /feed add/list/remove, the feed job (new entries only, failures), /whois
   improvements.test.ts ← preferences, tasks, clean links, future time, events and health diagnostics
   moderation-tools.test.ts ← /filter, /slowmode, /seen + /afk, /remind @member
   group-admin.test.ts  ← filter edits/actions/levels, anti-spam edits, /toggle, /modlog linking, reminder dates
@@ -288,6 +292,18 @@ Everything below is exported from `src/sdk.ts` and/or available on `ctx` / `rt`.
 - **Tournament and WYR:** `/trivia tournament [2–10] [difficulty]` fetches all questions once, persists scores/names in
   interaction state, and schedules `trivia-reveal` then `tournament-next` (5s between rounds). `/wyr [A | B]` uses a
   built-in prompt if no options are given; votes can change via reactions or buttons.
+- **Turn-based games:** `/hangman` and `/ttt` are interactions (one hangman per chat; one tic-tac-toe per player per
+  chat, found by the player's sender key). Moves are commands (`/hangman e`, `/ttt 5`; ttt cell buttons are `/'ttt 5'`,
+  not `/vote`), applied inside `rt.interactions.mutate` so concurrent guesses are serialized, then the board message is
+  edited. `/word` isn't an interaction: today's board lives in the `word` store collection and wins in `wordscores`,
+  both keyed by `chatKey(ref)`; the answer is `wordFor(utcDay)` (a hash into `ANSWERS`), the same in every chat.
+  Guesses aren't checked against a dictionary.
+- **Feeds:** a `/feed` subscription is a recurring `feed` job whose payload holds the URL, title and seen entry ids
+  (no GroupSettings field), so `forgetChat` drops it with the chat. The handler catches its own errors (counted in
+  `payload.failures`, shown by `/feed`) and always returns the next check time, so outages never make it fail
+  permanently. Feeds are fetched with `publicOnly`. At most 5 new entries are posted per check; a group has ≤ 10 feeds.
+- **RDAP:** `/whois` asks `rdap.org/domain/<name>` (falling back to the last two labels) or `rdap.org/ip/<ip>`; a 404
+  `HttpError` means no record.
 - **CheapShark deals:** `/deals <title>` calls `/games` search + `/games?id` + `/stores`, then shows every current
   store's USD price, retail price, discount and CheapShark redirect on the following line, plus historical low and tied
   best deals. The game
@@ -363,7 +379,8 @@ Conventions:
 - Keep `description` to one short line; it's the menu label (examples after a colon are dropped there). Put long text in `details`.
 - Use `fmt.*` for SimpleX markdown (`*bold*`, `_italic_`, `` `code` ``, `!1 red!`). SimpleX only starts formatting at
   the **start of a word** (after a space): `Rubi_(me)_` shows the underscores. `fmt.italic(" (me)")` keeps the space outside
-  the markers for you, so put the separating space *inside* the call rather than gluing markers to text. Formatting doesn't nest.
+  the markers for you, so put the separating space *inside* the call rather than gluing markers to text. Formatting doesn't nest,
+  and **commands inside `_italic_`/`*bold*` aren't tappable**: keep `ctx.ui.cmd(...)` outside the markers.
   Newer SimpleX versions (the core's current markdown parser) also render `#` headings, `-`/`1.` lists, `>` quotes, tables and fenced code; older apps show them as
   plain text, so only use them where that still reads fine (e.g. /reddit). Use `ctx.ui.cmd("help", "ping")` for
   command references (never `fmt.command`), and `ctx.mention(member)` for real @mentions.

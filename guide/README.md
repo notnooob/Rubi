@@ -8,7 +8,7 @@ or operating your own copy.
 |---|---|---|
 | [Using Rubi](using-rubi.md) | Everyone | Sending commands, buttons, arguments, reminders, polls, games, web lookups, what Rubi stores |
 | [Group admin guide](group-admins.md) | Group owners, admins and moderators | Adding Rubi to a group, the roles it needs, moderation, banned words, slow mode, the moderation log, turning commands off |
-| [Running Rubi](bot-admins.md) | Whoever hosts Rubi | Bot admins, admin commands, configuration, custom commands, data and backups |
+| [Running Rubi](bot-admins.md) | Whoever hosts Rubi | Installing, configuration, bot admins, admin commands, custom commands, data and backups |
 | [Command reference](commands.md) | Everyone | Every command with its usage, arguments, examples, who can use it and where (the same as `/help <command>`) |
 
 ## Quick start

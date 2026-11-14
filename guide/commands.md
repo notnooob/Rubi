@@ -10,9 +10,9 @@ Every command, with the same information as `/help <command>` in the chat. New h
 
 - 📖 **General**: [`/about`](#cmd-about) [`/help`](#cmd-help) [`/invite`](#cmd-invite) [`/ping`](#cmd-ping) [`/whoami`](#cmd-whoami)
 - 🛠 **Utility**: [`/base64`](#cmd-base64) [`/calc`](#cmd-calc) [`/choose`](#cmd-choose) [`/cleanlink`](#cmd-cleanlink) [`/convert`](#cmd-convert) [`/hash`](#cmd-hash) [`/password`](#cmd-password) [`/poll`](#cmd-poll) [`/prefs`](#cmd-prefs) [`/qr`](#cmd-qr) [`/remind`](#cmd-remind) [`/reminders`](#cmd-reminders) [`/roll`](#cmd-roll) [`/time`](#cmd-time) [`/timestamp`](#cmd-timestamp) [`/todo`](#cmd-todo) [`/uuid`](#cmd-uuid)
-- 🌐 **Web**: [`/country`](#cmd-country) [`/crypto`](#cmd-crypto) [`/currency`](#cmd-currency) [`/deals`](#cmd-deals) [`/define`](#cmd-define) [`/dns`](#cmd-dns) [`/github`](#cmd-github) [`/hn`](#cmd-hn) [`/holidays`](#cmd-holidays) [`/npm`](#cmd-npm) [`/reddit`](#cmd-reddit) [`/status`](#cmd-status) [`/weather`](#cmd-weather) [`/wiki`](#cmd-wiki) [`/x`](#cmd-x)
-- 🎲 **Fun**: [`/8ball`](#cmd-8ball) [`/coinflip`](#cmd-coinflip) [`/fact`](#cmd-fact) [`/joke`](#cmd-joke) [`/quote`](#cmd-quote) [`/rps`](#cmd-rps) [`/trivia`](#cmd-trivia) [`/wyr`](#cmd-wyr) [`/xkcd`](#cmd-xkcd)
-- 👥 **Groups**: [`/afk`](#cmd-afk) [`/antispam`](#cmd-antispam) [`/event`](#cmd-event) [`/filter`](#cmd-filter) [`/groupinfo`](#cmd-groupinfo) [`/groupmenu`](#cmd-groupmenu) [`/link`](#cmd-link) [`/members`](#cmd-members) [`/rules`](#cmd-rules) [`/seen`](#cmd-seen) [`/slowmode`](#cmd-slowmode) [`/toggle`](#cmd-toggle) [`/welcome`](#cmd-welcome)
+- 🌐 **Web**: [`/country`](#cmd-country) [`/crypto`](#cmd-crypto) [`/currency`](#cmd-currency) [`/deals`](#cmd-deals) [`/define`](#cmd-define) [`/dns`](#cmd-dns) [`/github`](#cmd-github) [`/hn`](#cmd-hn) [`/holidays`](#cmd-holidays) [`/npm`](#cmd-npm) [`/reddit`](#cmd-reddit) [`/status`](#cmd-status) [`/weather`](#cmd-weather) [`/whois`](#cmd-whois) [`/wiki`](#cmd-wiki) [`/x`](#cmd-x)
+- 🎲 **Fun**: [`/8ball`](#cmd-8ball) [`/coinflip`](#cmd-coinflip) [`/fact`](#cmd-fact) [`/hangman`](#cmd-hangman) [`/joke`](#cmd-joke) [`/quote`](#cmd-quote) [`/rps`](#cmd-rps) [`/trivia`](#cmd-trivia) [`/ttt`](#cmd-ttt) [`/word`](#cmd-word) [`/wyr`](#cmd-wyr) [`/xkcd`](#cmd-xkcd)
+- 👥 **Groups**: [`/afk`](#cmd-afk) [`/antispam`](#cmd-antispam) [`/event`](#cmd-event) [`/feed`](#cmd-feed) [`/filter`](#cmd-filter) [`/groupinfo`](#cmd-groupinfo) [`/groupmenu`](#cmd-groupmenu) [`/link`](#cmd-link) [`/members`](#cmd-members) [`/rules`](#cmd-rules) [`/seen`](#cmd-seen) [`/slowmode`](#cmd-slowmode) [`/toggle`](#cmd-toggle) [`/welcome`](#cmd-welcome)
 - 🛡 **Moderation**: [`/block`](#cmd-block) [`/delete`](#cmd-delete) [`/kick`](#cmd-kick) [`/modlog`](#cmd-modlog) [`/purge`](#cmd-purge) [`/role`](#cmd-role) [`/unblock`](#cmd-unblock) [`/unwarn`](#cmd-unwarn) [`/warn`](#cmd-warn) [`/warnings`](#cmd-warnings)
 - ⚙️ **Admin**: [`/broadcast`](#cmd-broadcast) [`/groups`](#cmd-groups) [`/join`](#cmd-join) [`/leave`](#cmd-leave) [`/reload`](#cmd-reload) [`/stats`](#cmd-stats)
 
@@ -180,7 +180,7 @@ Separate options with |, commas, or the word "or".
 <a id="cmd-cleanlink"></a>
 ### `/cleanlink`
 
-Remove common tracking parameters from a URL
+Remove tracking from a link
 
 Works offline and never opens the URL. Signed or tokenized URLs are left unchanged rather than risking a broken link.
 
@@ -300,7 +300,7 @@ Separate the question and options with |. With no options it's a 👍/👎 poll.
 <a id="cmd-prefs"></a>
 ### `/prefs`
 
-View or set your personal command defaults
+Your personal defaults
 
 Defaults are used only in direct chats when a command omits a place, country or currency. Explicit arguments always win.
 
@@ -827,6 +827,31 @@ Data from Open-Meteo (free, no tracking key).
 - `/weather Oslo`
 - `/weather New York`
 
+<a id="cmd-whois"></a>
+### `/whois`
+
+Domain or IP owner: /whois simplex.chat
+
+Registrar, dates, status, name servers and DNSSEC for domains; network name, range and country for IP addresses. Uses RDAP (rdap.org), the successor of WHOIS.
+
+| | |
+|---|---|
+| Usage | `/whois <target>` |
+| Where | DMs and groups |
+| Who | Everyone |
+| Cooldown | 3 s |
+| Aliases | `/rdap` |
+| Live reply | yes: a placeholder appears right away and turns into the answer |
+
+**Arguments**
+
+- `target` (required, word or "quoted text"): Domain or IP address
+
+**Examples**
+
+- `/whois simplex.chat`
+- `/whois 1.1.1.1`
+
 <a id="cmd-wiki"></a>
 ### `/wiki`
 
@@ -928,6 +953,30 @@ A random (useless) fact
 | Aliases | `/funfact` |
 | Live reply | yes: a placeholder appears right away and turns into the answer |
 
+<a id="cmd-hangman"></a>
+### `/hangman`
+
+Play hangman together
+
+Start with /hangman, then anyone guesses with /hangman <letter> or /hangman <word>. 6 wrong guesses and it's over. One game per chat; the starter can stop it.
+
+| | |
+|---|---|
+| Usage | `/hangman [guess]` |
+| Where | DMs and groups |
+| Who | Everyone |
+| Cooldown | none |
+
+**Arguments**
+
+- `guess` (optional, word or "quoted text"): A letter or the whole word
+
+**Examples**
+
+- `/hangman`
+- `/hangman e`
+- `/hangman rocket`
+
 <a id="cmd-joke"></a>
 ### `/joke`
 
@@ -990,7 +1039,7 @@ Rock, paper, scissors against me
 <a id="cmd-trivia"></a>
 ### `/trivia`
 
-A trivia question, or a tournament of 2–10 rounds
+Trivia question or tournament
 
 Answers are revealed after 30 seconds. Questions from the Open Trivia Database. Start a tournament with /trivia tournament [2–10] [easy|medium|hard]; points accumulate across rounds.
 
@@ -1013,10 +1062,59 @@ Answers are revealed after 30 seconds. Questions from the Open Trivia Database. 
 - `/trivia hard`
 - `/trivia tournament 5 medium`
 
+<a id="cmd-ttt"></a>
+### `/ttt`
+
+Tic-tac-toe vs a member
+
+Challenge someone with /ttt @member; you play ❌ and go first. Move with /ttt <1-9>. Either player can stop with /ttt stop. Games expire after a day.
+
+| | |
+|---|---|
+| Usage | `/ttt [input...]` |
+| Where | Groups only |
+| Who | Everyone |
+| Cooldown | none |
+| Aliases | `/tictactoe` |
+
+**Arguments**
+
+- `input` (optional, text): @member, a cell 1-9, or stop
+
+**Examples**
+
+- `/ttt @bob`
+- `/ttt 5`
+- `/ttt stop`
+
+<a id="cmd-word"></a>
+### `/word`
+
+Daily word puzzle
+
+Everyone gets the same word each day (UTC). Guess with /word <word>: 🟩 right spot, 🟨 in the word, ⬜ not in it. Each player has 6 guesses a day; guesses are shared with the chat, and the first to solve it scores a win. /word scores shows the leaderboard.
+
+| | |
+|---|---|
+| Usage | `/word [guess]` |
+| Where | DMs and groups |
+| Who | Everyone |
+| Cooldown | none |
+
+**Arguments**
+
+- `guess` (optional, word or "quoted text"): A 5-letter word, or scores
+
+**Examples**
+
+- `/word`
+- `/word crane`
+- `/word scores`
+
 <a id="cmd-wyr"></a>
 ### `/wyr`
 
-Would you rather? Vote for one of two choices
+Would you rather? Vote A or B
 
 Give two options separated by |, or leave it blank for a random question. One vote per person; changing your reaction or tapping the other option changes your vote.
 
@@ -1135,6 +1233,32 @@ Create one-off events with a timezone and visible yes/maybe/no RSVPs.
 - `/event new tomorrow 18:30 | Europe/London | Book club`
 - `/event list`
 - `/event rsvp abc123 yes`
+
+<a id="cmd-feed"></a>
+### `/feed`
+
+RSS/Atom feeds for this group
+
+/feed lists this group's feeds; admins use /feed add <url> and /feed remove <id>. Checked every 30 minutes, up to 10 feeds per group. Works with blogs and news sites (a page that links its feed is enough), GitHub (github.com/<owner>/<repo>/releases.atom), subreddits (reddit.com/r/<name>/.rss), YouTube channel pages and Mastodon profiles.
+
+| | |
+|---|---|
+| Usage | `/feed [list\|add\|remove] [target]` |
+| Where | Groups only |
+| Who | Everyone |
+| Cooldown | 2 s |
+| Aliases | `/rss` |
+
+**Arguments**
+
+- `action` (optional, one of `list`, `add`, `remove`): list, add or remove
+- `target` (optional, word or "quoted text"): Feed URL (add) or id (remove)
+
+**Examples**
+
+- `/feed`
+- `/feed add https://github.com/simplex-chat/simplex-chat/releases.atom`
+- `/feed remove ab12cd`
 
 <a id="cmd-filter"></a>
 ### `/filter`

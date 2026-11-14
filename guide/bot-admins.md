@@ -1,7 +1,31 @@
 # Running Rubi
 
-For whoever hosts a copy of Rubi. Installing and the full list of settings are in the [project README](../README.md);
-this page covers operating it day to day.
+For whoever hosts a copy of Rubi: installing it, configuring it and operating it day to day.
+
+## Installing
+
+The [README](../README.md#getting-started) has the short version. In more detail:
+
+1. **Node.js 22.19 or newer.**
+2. **Build tools** for the native SimpleX library, which `npm install` compiles with `node-gyp`:
+   - Windows: [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the
+     "Desktop development with C++" workload, plus Python. Or run Rubi under WSL.
+   - Linux: `build-essential` and `python3` (e.g. `sudo apt install build-essential python3`).
+   - macOS: Xcode command line tools (`xcode-select --install`).
+3. **Optional: [ffmpeg](https://ffmpeg.org)** on the `PATH`. Reddit stores a video's sound separately, and ffmpeg joins
+   them; without it, Reddit videos are sent muted.
+4. `git clone https://github.com/notnooob/Rubi.git`, then `npm install` in the folder.
+5. Optionally `cp .env.example .env` and adjust it (see [Configuration](#configuration)). If you want an encrypted
+   database, set `RUBI_DB_KEY` now, before the first start.
+6. `npm run dev` runs from source; `npm run build && npm start` compiles once and runs the compiled code.
+
+On first start Rubi creates its profile, its database in `storage/` and a SimpleX address, and prints the address
+(`Connect: https://smp….simplex.im/a#…`). On macOS the very first start can take 20–30 seconds while the system
+verifies the library.
+
+**If the native library is missing:** on some Node versions the package's own unzip step stops partway through, so
+linking fails (`cannot open file …libsimplex.lib`) or Rubi says the library is missing. `npm run setup:native`
+downloads the same release, extracts it with your system's tools and rebuilds the addon.
 
 ## Bot admins
 
@@ -25,17 +49,37 @@ In a group you count as a bot admin only as the member linked to that contact, s
 
 ## Configuration
 
-Every setting is an environment variable, usually set in `.env`. They're all listed with defaults in the
-[README](../README.md#configuration) and explained in `.env.example`. A few that change behavior people notice:
+Every setting is an environment variable, read from `.env` in the folder you start Rubi from. Everything has a default,
+so Rubi runs without a `.env`. `.env.example` lists every variable with comments; the most useful:
 
-- `RUBI_SKIP_MISSED_COMMANDS` (default `true`): commands sent while Rubi was offline aren't answered when it comes back.
-  Set `false` to answer them late.
-- `RUBI_AUTO_JOIN_GROUPS` / `RUBI_GREET_ON_JOIN`: accept group invitations automatically, and say hello after joining.
-- `RUBI_UNKNOWN_COMMAND_REPLY` (`always`, `direct`, `never`), `RUBI_NON_COMMAND_HINT`, `RUBI_MENTION_HINT`: when Rubi
-  answers messages it doesn't understand.
-- `RUBI_DEFAULT_COOLDOWN`, `RUBI_FLOOD_MAX`, `RUBI_FLOOD_WINDOW_MS`: per-person rate limits.
-- `RUBI_HTTP_PROXY`: route every web lookup through a proxy, e.g. `socks5://127.0.0.1:9050` for Tor.
-- `RUBI_ALLOW_FILES`: let people send files to Rubi.
+| Variable | Default | What it does |
+|---|---|---|
+| `RUBI_BOT_ADMINS` | *(none)* | Comma-separated contact ids of the bot's operators (see [Bot admins](#bot-admins)). |
+| `RUBI_NAME` | `Rubi` | Display name. |
+| `RUBI_BIO` | *The first multi-purpose SimpleX Chat bot. Send /help.* | Profile bio. |
+| `RUBI_AVATAR` | `./assets/avatar.jpg` | Profile picture (.png/.jpg, small), or `none`. |
+| `RUBI_DB_PREFIX` | `./storage/rubi` | Where the SQLite database files go. |
+| `RUBI_DB_KEY` | *(none)* | Encrypts the SQLite database (`rubi-state.json` stays a separate file). Set it before the first start, and don't lose it. |
+| `RUBI_DB_TYPE` / `RUBI_PG_URL` | `sqlite` | Use `postgres` and a connection URL instead (Linux x86_64 only). |
+| `RUBI_BUSINESS_ADDRESS` | `false` | Each person who connects gets their own business chat. |
+| `RUBI_ALLOW_FILES` | `false` | Let people send files to Rubi. |
+| `RUBI_AUTO_JOIN_GROUPS` | `true` | Accept group invitations automatically. |
+| `RUBI_GREET_ON_JOIN` | `true` | Say hello (plus the `/groupmenu` tip) after joining a group. |
+| `RUBI_UNKNOWN_COMMAND_REPLY` | `direct` | Answer unknown commands `always`, in DMs only (`direct`) or `never`. |
+| `RUBI_NON_COMMAND_HINT` | `true` | In DMs, answer plain messages with a `/help` hint. |
+| `RUBI_MENTION_HINT` | `true` | In groups, answer an @mention of Rubi with a `/help` hint (replies to Rubi never trigger it). |
+| `RUBI_SKIP_MISSED_COMMANDS` | `true` | Ignore commands sent while Rubi was offline instead of answering them late. |
+| `RUBI_DEFAULT_COOLDOWN` | `2` | Seconds between uses of the same command, per person. |
+| `RUBI_FLOOD_MAX` / `RUBI_FLOOD_WINDOW_MS` | `6` / `15000` | Anti-flood: at most this many commands per person per window. |
+| `RUBI_HTTP_PROXY` | *(none)* | Send web lookups through a proxy, e.g. `socks5://127.0.0.1:9050` for Tor. |
+| `RUBI_MEDIA_MAX_MB` | `50` | Largest file `/reddit` and `/x` download and attach. |
+| `RUBI_FFMPEG` | `ffmpeg` | Path to ffmpeg (adds sound to Reddit videos). Set it to an empty value to turn this off. |
+| `RUBI_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`. |
+
+Restart Rubi after changing `.env`. Profile changes (name, bio, picture) are sent to all contacts automatically.
+
+The web commands contact public APIs (listed in [Using Rubi](using-rubi.md#privacy-what-rubi-sees-and-keeps)), which
+can see your server's IP address. Set `RUBI_HTTP_PROXY` to a Tor SOCKS proxy to hide it.
 
 ## What the log tells you
 

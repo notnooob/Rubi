@@ -128,6 +128,17 @@ is revealed after 30 seconds. `/trivia tournament 5 medium` plays several rounds
 **Would you rather:** `/wyr` asks a random question, or `/wyr Explore space | Explore the ocean` asks yours. Vote with
 reactions; you can change your vote.
 
+**Hangman:** `/hangman` starts a game for the whole chat. Anyone guesses with `/hangman e` or the whole word
+(`/hangman rocket`); six wrong guesses and it's over. Whoever started it can stop it.
+
+**Tic-tac-toe** (groups): `/ttt @bob` challenges Bob; you play ❌ and go first. Move with `/ttt 5` (cells 1–9, or tap
+the cell buttons where commands are tappable). Either player can `/ttt stop`.
+
+**Daily word:** everyone gets the same 5-letter word each day (UTC). Guess with `/word crane`: 🟩 right letter in the
+right spot, 🟨 in the word but elsewhere, ⬜ not in the word. You have six guesses a day. In a group the guesses are
+shared, so it's a race: the first to solve it scores a win. `/word` shows today's board, `/word scores` the chat's
+leaderboard.
+
 **Events** (groups): `/event new tomorrow 18:30 | Europe/London | Book club` creates an event with a time zone and
 visible RSVPs. Members answer with the 👍 yes, 😀 maybe or 👎 no reactions, or `/event rsvp <id> yes|maybe|no`.
 `/event list` shows upcoming events. Rubi posts a reminder when the event starts. Only the creator can
@@ -151,7 +162,7 @@ visible RSVPs. Members answer with the 👍 yes, 😀 maybe or 👎 no reactions
 ## Web lookups, Reddit and X
 
 `/weather`, `/wiki`, `/define`, `/currency`, `/crypto`, `/country`, `/holidays`, `/time`, `/github`, `/npm`, `/hn`,
-`/dns`, `/status`, `/deals` and `/xkcd` fetch information from public services (each command's details say which). They
+`/dns`, `/whois`, `/status`, `/deals` and `/xkcd` fetch information from public services (each command's details say which). They
 answer with a live reply.
 
 **Reddit and X posts:** `/reddit <link>` (or `/r`) and `/x <link>` show the post's text and stats and attach its images
@@ -182,6 +193,13 @@ in. What it keeps:
   banned words, warnings, events, tasks) are stored in Rubi's own SimpleX database, attached to that chat.
 - **Scheduled things** (reminders, event reminders, timed blocks), open polls and games, and the time each member last
   posted in a group (for `/seen`) and away statuses are kept in a small state file next to that database.
+- **Web lookups** go to free public services that need no key: Open-Meteo, Wikipedia, Free Dictionary, Frankfurter
+  (ECB rates), CoinGecko, Cloudflare DNS-over-HTTPS, RDAP (rdap.org), GitHub, npm, Nager.Date, Hacker News, JokeAPI,
+  xkcd, CheapShark and Open Trivia DB. `/reddit` reads posts from the [Arctic Shift](https://arctic-shift.photon-reddit.com)
+  archive and `/x` uses the [FxTwitter](https://github.com/FxEmbed/FxEmbed) API; both download media from the sites'
+  own servers. `/feed` fetches the feeds a group follows. These services see the server's IP address, never yours,
+  and whoever runs Rubi can route them through Tor. `/country` uses built-in data from
+  [mledoze/countries](https://github.com/mledoze/countries) (ODbL) and makes no request.
 - Rubi doesn't log message contents. It logs which commands ran, for whom and how long they took.
 - Group admins can ask Rubi to DM them a [moderation log](group-admins.md#the-moderation-log) of moderation actions in
   their group, which can include removed messages. Nothing from that log is posted in the group.
