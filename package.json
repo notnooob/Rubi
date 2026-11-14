@@ -1,6 +1,6 @@
 {
   "name": "rubi",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "private": true,
   "description": "Rubi — the first multi-purpose SimpleX Chat bot: utilities, web lookups, polls, games, reminders and group moderation",
   "keywords": [
