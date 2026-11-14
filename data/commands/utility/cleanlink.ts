@@ -4,7 +4,7 @@ import {defineCommand, fmt} from "../../../src/sdk"
 export default defineCommand({
   name: "cleanlink",
   aliases: ["cleanurl"],
-  description: "Remove common tracking parameters from a URL",
+  description: "Remove tracking from a link",
   details: "Works offline and never opens the URL. Signed or tokenized URLs are left unchanged rather than risking a broken link.",
   category: "Utility",
   args: [{name: "url", type: "text", description: "HTTP(S) URL"}],

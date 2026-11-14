@@ -106,7 +106,7 @@ defineInteraction<WyrState>("wyr", {
 export default defineCommand({
   name: "wyr",
   aliases: ["wouldyourather"],
-  description: "Would you rather? Vote for one of two choices",
+  description: "Would you rather? Vote A or B",
   details: "Give two options separated by |, or leave it blank for a random question. One vote per person; changing your reaction or tapping the other option changes your vote.",
   category: "Fun",
   args: [{name: "options", type: "text", description: "Option A | option B"}],

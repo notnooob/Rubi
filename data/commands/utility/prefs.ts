@@ -5,7 +5,7 @@ type Preference = (typeof KEYS)[number]
 
 export default defineCommand({
   name: "prefs",
-  description: "View or set your personal command defaults",
+  description: "Your personal defaults",
   details: "Defaults are used only in direct chats when a command omits a place, country or currency. Explicit arguments always win.",
   category: "Utility",
   scope: "direct",

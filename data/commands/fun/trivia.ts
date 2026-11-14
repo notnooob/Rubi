@@ -224,7 +224,7 @@ async function startQuestion(run: QuestionRun): Promise<void> {
 export default defineCommand({
   name: "trivia",
   aliases: ["quiz"],
-  description: "A trivia question, or a tournament of 2–10 rounds",
+  description: "Trivia question or tournament",
   details: `Answers are revealed after ${SECONDS} seconds. Questions from the Open Trivia Database. Start a tournament with /trivia tournament [2–10] [easy|medium|hard]; points accumulate across rounds.`,
   category: "Fun",
   args: [{name: "input", type: "text", description: "[tournament] [rounds] [easy|medium|hard]"}],
