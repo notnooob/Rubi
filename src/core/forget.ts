@@ -1,4 +1,5 @@
 import type {T} from "@simplex-chat/types"
+import {chatKey} from "../util/chat"
 import type {Runtime} from "./runtime"
 
 /**
@@ -16,6 +17,9 @@ export function forgetChat(rt: Runtime, ref: T.ChatRef, memberId?: number): numb
   const records = ref.chatType === "group" ? [rt.store.collection("seen"), rt.store.collection("afk")] : []
   const prefix = `g${ref.chatId}:${memberId ?? ""}`
   for (const c of records) for (const k of c.keys()) if (memberId === undefined ? k.startsWith(prefix) : k === prefix) c.delete(k)
+
+  // /word boards and scores (data/commands/fun/word.ts), keyed by chatKey
+  if (memberId === undefined) for (const name of ["word", "wordscores"]) rt.store.collection(name).delete(chatKey(ref))
 
   if (memberId !== undefined) {
     return rt.scheduler.cancelWhere((j) => {
