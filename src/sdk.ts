@@ -54,6 +54,7 @@ export {downloadAttachments, sendAttachments, attachmentsBlocked, describeMedia,
 export type {MediaItem, Downloaded, DownloadOptions} from "./util/attachments"
 export * from "./services/x"
 export * from "./services/cheapshark"
+export * from "./services/feeds"
 export {TempFiles, FileGroup} from "./core/files"
 export {botMenuBudget, groupMenuBudget, MAX_INFO_BYTES} from "./core/profile"
 
