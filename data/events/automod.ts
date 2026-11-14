@@ -17,7 +17,7 @@ export async function automod(rt: Runtime, ci: T.AChatItem, opts: {edited?: bool
   const g = ci.chatInfo.groupInfo
   const m = ci.chatItem.chatDir.groupMember
   if (roleAtLeast(m.memberRole, T.GroupMemberRole.Moderator)) return
-  const s = await rt.data.group(g).get()
+  const s = rt.data.group(g).peek()
   if (!s.filter?.length && !s.slowmodeMs) return
   if (!roleAtLeast(g.membership.memberRole, T.GroupMemberRole.Moderator)) return
 

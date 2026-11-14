@@ -129,6 +129,14 @@ export class ScopedData<S extends object> {
     return structuredClone((this.read()[NS] as S | undefined) ?? ({} as S))
   }
 
+  /**
+   * Current settings without the copy `get()` makes, for hot read-only paths (checks on every message).
+   * Never mutate the result. `update` replaces the stored object rather than changing it, so it stays a stable snapshot.
+   */
+  peek(): Readonly<S> {
+    return (this.read()[NS] as S | undefined) ?? ({} as S)
+  }
+
   /** Change settings: mutate the draft or return a new object. Saved to the chat database. */
   update(fn: (draft: S) => S | void): Promise<S> {
     return this.serialize(async () => {

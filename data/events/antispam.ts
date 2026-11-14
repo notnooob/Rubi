@@ -24,7 +24,7 @@ export async function antispam(rt: Runtime, ci: T.AChatItem): Promise<void> {
   const botJoined = Date.parse(g.membership.createdAt)
   if (!(joined > botJoined + 60_000) || Date.now() - joined > NEW_MEMBER_MS) return
   if (!hasLink(ci.chatItem)) return
-  if (!(await rt.data.group(g).get()).antispam) return
+  if (!rt.data.group(g).peek().antispam) return
   if (!roleAtLeast(g.membership.memberRole, T.GroupMemberRole.Moderator)) return
 
   try {

@@ -248,7 +248,9 @@ Everything below is exported from `src/sdk.ts` and/or available on `ctx` / `rt`.
   In tests, swap `rt.http` for a fake (see `fakeHttp` in `test/features.test.ts`).
 - **Group/contact settings:** `await ctx.groupData.get()` and `await ctx.groupData.update((s) => { s.rules = "…" })`.
   Same for `ctx.contactData` in DMs. They're stored in the SimpleX database (`customData.rubi`), and writes per chat
-  are serialized. **Add new fields to `GroupSettings` / `ContactSettings` in `src/core/data.ts`.**
+  are serialized. `get()` returns a deep copy (~0.5 ms for a big group); hot read-only paths that run on every message
+  (automod, anti-spam, the `/toggle` check) use `peek()`, which doesn't copy and must never be mutated.
+  **Add new fields to `GroupSettings` / `ContactSettings` in `src/core/data.ts`.**
 - **Persistent store:** `rt.store.collection<V>("name")` gives `get/set/update/delete/values`. It's a JSON file,
   batched and saved atomically. Use it for state that isn't one chat's setting.
 - **Scheduler:** call `defineJob<P>("kind", async (job, rt) => …)` at module load, then

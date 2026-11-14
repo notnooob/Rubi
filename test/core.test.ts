@@ -11,6 +11,8 @@ import {botMenuBudget, groupMenuBudget, MAX_INFO_BYTES} from "../src/core/profil
 import {CommandRegistry} from "../src/core/registry"
 import {createLogger, setLogLevel} from "../src/core/logger"
 import {COMMANDS_DIR} from "../src/paths"
+import {ChatData} from "../src/core/data"
+import {FakeChat} from "./helpers/fake"
 
 const noMembers = async (): Promise<never> => {
   throw new Error("no members")
@@ -166,5 +168,20 @@ describe("profile size budget", () => {
     const plain = groupMenuBudget({displayName: "Club", fullName: ""})
     assert.equal(groupMenuBudget({displayName: "Club", fullName: "", image: "x".repeat(5000)}), plain - 5000 - Buffer.byteLength(',"image":""'))
     assert.ok(plain < MAX_INFO_BYTES)
+  })
+})
+
+describe("chat settings", () => {
+  it("peek reads without copying, and an update never changes an earlier snapshot", async () => {
+    const data = new ChatData(new FakeChat() as any)
+    const g = {groupId: 5, customData: {rubi: {filter: ["spam"]}}} as any
+    const scoped = data.group(g)
+    const before = scoped.peek()
+    assert.equal(before, scoped.peek(), "no copy per read")
+    await scoped.update((s) => {
+      s.filter!.push("scam")
+    })
+    assert.deepEqual(before.filter, ["spam"])
+    assert.deepEqual(scoped.peek().filter, ["spam", "scam"])
   })
 })
