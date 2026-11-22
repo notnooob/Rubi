@@ -40,7 +40,7 @@ In a group you count as a bot admin only as the member linked to that contact, s
 
 | Command | What it does |
 |---|---|
-| `/stats` | Commands run, failures, memory, scheduled jobs. `/stats health` adds storage, jobs and interaction diagnostics. |
+| `/stats` | Commands run and failures (counted since the date shown, across restarts), uptime, memory, scheduled jobs and the most used commands. `/stats health` adds storage, jobs and interaction diagnostics. |
 | `/groups` | The groups Rubi is in, with their ids. |
 | `/join <link>` | Join a group link, or connect to a contact address or one-time invitation. |
 | `/leave` / `/leave <groupId>` | Leave a group, after confirming. Rubi also drops that group's reminders, polls and records. |
@@ -95,8 +95,9 @@ Everything lives in `storage/` (never commit it):
 
 - the SimpleX database (`rubi_chat.db`, `rubi_agent.db` with SQLite): Rubi's identity, keys, contacts, groups, and
   every group's and contact's Rubi settings (rules, banned words, warnings, preferences…);
-- `rubi-state.json`: scheduled jobs (reminders, timed blocks, event reminders), open polls and games, last-seen and
-  away records;
+- `rubi-state.json`: scheduled jobs (reminders, timed blocks and polls, event reminders, feeds), open polls and games,
+  reminders that can still be snoozed, `/word` boards and scores, last-seen and away records, command usage counts
+  for `/stats` and `/about`, and the address link (for the menu size budget);
 - `media/`: temporary downloads for Reddit and X attachments, deleted after upload and on start.
 
 Back up the whole `storage/` folder while Rubi is stopped. **Never run two copies on the same database**: each one takes

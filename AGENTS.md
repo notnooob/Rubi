@@ -106,7 +106,8 @@ scripts/make-avatar.mjs  ← assets/avatar.svg → avatar.png (512px), avatar-ro
 scripts/setup-native.mjs ← installs/repairs the simplex-chat native lib + rebuilds the addon
 scripts/check-docs.mjs   ← validates command-count, command-table and configuration documentation
 scripts/make-guide.ts    ← `npm run guide`: writes guide/commands.md from the command definitions (test/guide.test.ts checks it's current)
-scripts/build-wiki.mjs   ← guide/ → GitHub wiki pages (page names in PAGES, .md links rewritten, sidebar + footer); .d.mts = its types
+scripts/build-wiki.mjs   ← guide/ → GitHub wiki pages (page names in PAGES, .md links rewritten, sidebar + footer)
+scripts/build-wiki.d.mts ← its types, for test/guide.test.ts (which checks the wiki build)
 assets/                ← avatar.svg (source), avatar.png, avatar-round.png (README), avatar.jpg (default RUBI_AVATAR)
 .github/workflows/wiki.yml  ← on push to main (guide/ changed): build-wiki.mjs → push to the repo's wiki (GITHUB_TOKEN, contents: write)
 docs/                  ← GENERATED SimpleX API docs (see above)
@@ -171,6 +172,7 @@ src/
     format.ts          ← SimpleX markdown helpers (bold, code, bar, mention, duration…)
     ui.ts              ← chat-aware commands/buttons: ctx.ui, makeUi, commandsTappable (see "Tappable commands")
     chat.ts            ← chatRefOf, chatName, itemText … (no native import)
+    number.ts          ← parseNumeric / isIntegerNumeric / NUMERIC_PATTERN: numbers with comma digit groups (1,000)
     cap.ts             ← capSize(map|set, max): evict the oldest entries of an in-memory cache
     time.ts            ← parseDuration, parseWhen ("10m", "18:30", "tomorrow 9am"), parseRepeat/nextRepeat ("every day 9:00"), formatDateTime
     calc.ts            ← safe expression evaluator (no eval)
@@ -186,8 +188,10 @@ src/
 test/
   helpers/fake.ts      ← FakeChat (records chat core commands + API calls) + item builders + harness
   core.test.ts         ← parser/args/format unit tests
-  bot.test.ts          ← end-to-end dispatcher + /help tests (no native lib needed)
-  features.test.ts     ← utilities, polls, confirms, reminders, moderation, trivia, http, lock
+  bot.test.ts          ← end-to-end dispatcher + /help tests (no native lib needed); cooldown after HttpError,
+                         persistent stats, capSize
+  features.test.ts     ← utilities, polls (timed, multi-choice), confirms, reminders + snooze, /todo reopen/clear/assign,
+                         expiring interactions, moderation, trivia, http, lock
   reddit.test.ts       ← /reddit: links, markdown conversion, media extraction, live reply + attachments, temp files
   x.test.ts            ← /x: links, formatting (quotes, replies, polls, notes), media, live reply + attachments
   convert.test.ts      ← /convert: offline unit aliases, conversions, parsing and command replies
@@ -197,7 +201,8 @@ test/
   feed.test.ts         ← feed parsing + discovery, /feed add/list/remove, the feed job (new entries only, failures), /whois
   improvements.test.ts ← preferences, tasks, clean links, future time, events and health diagnostics
   moderation-tools.test.ts ← /filter, /slowmode, /seen + /afk, /remind @member
-  group-admin.test.ts  ← filter edits/actions/levels, anti-spam edits, /toggle, /modlog linking, reminder dates
+  group-admin.test.ts  ← filter edits/actions/levels, anti-spam edits, /toggle, /modlog linking, reminder dates,
+                         timed-unblock retries, /report, goodbye messages, warning expiry
   guide.test.ts        ← guide/commands.md matches the command definitions
   translate.test.ts    ← /translate (languages, MyMemory answers and errors, reply input) + /qr, /hash, /base64 from a reply
 storage/               ← SQLite DB files, rubi-state.json, rubi.lock, media/ downloads (gitignored)

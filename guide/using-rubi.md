@@ -12,6 +12,7 @@ This page is for everyone who talks to Rubi, in a direct chat or in a group. For
 - [Tasks, time zones and personal defaults](#tasks-time-zones-and-personal-defaults)
 - [Web lookups, Reddit and X](#web-lookups-reddit-and-x)
 - [Away and last seen](#away-and-last-seen)
+- [Reporting a message](#reporting-a-message)
 - [Privacy: what Rubi sees and keeps](#privacy-what-rubi-sees-and-keeps)
 
 ## Sending commands
@@ -81,7 +82,7 @@ server Rubi runs on. Times in groups always use the server's.
   "⏳ Working on /weather 3s", and edit it into the answer. Your app shows it as being typed.
 - **Cooldowns:** after you use a command, you wait a couple of seconds before using the same one again (some commands
   wait longer; see the reference). If you send many commands quickly, Rubi asks you to slow down and ignores the
-  rest for a few seconds. Typos don't start a cooldown.
+  rest for a few seconds. Typos don't start a cooldown, and neither does a web service that failed to answer.
 - **Errors:** ❌ means the input wasn't right (Rubi says what to fix), 🔒 means you need a role you don't have, and 🚫
   means the command doesn't work in this kind of chat. 💥 "Something went wrong" is a bug: it comes with an
   `Error ref` that the people running Rubi can look up.
@@ -201,6 +202,13 @@ characters at a time. The text is sent to MyMemory (translated.net).
 - `/seen @bob` shows when Bob last posted in the group (to the minute), and whether they're away. Rubi only knows about
   messages since it joined the group.
 
+## Reporting a message
+
+In a group, reply to a message with `/report` and, if you like, a reason: `/report spam link`. The group's admins who
+turned on the [moderation log](group-admins.md#the-moderation-log) get the message and your reason by DM. If Rubi is a
+moderator, it removes your `/report` message so the report stays discreet, and confirms by DM when it can reach you.
+You can send one report a minute. If nobody receives reports in that group yet, Rubi tells you so instead.
+
 ## Privacy: what Rubi sees and keeps
 
 Rubi is a regular SimpleX contact or group member. It sees what you send to it in DMs, and the messages in groups it's
@@ -208,19 +216,24 @@ in. What it keeps:
 
 - **Your settings** (time zone, personal defaults, personal tasks) and **group settings** (rules, welcome message,
   banned words, warnings, events, tasks) are stored in Rubi's own SimpleX database, attached to that chat.
-- **Scheduled things** (reminders, event reminders, timed blocks), open polls and games, and the time each member last
-  posted in a group (for `/seen`) and away statuses are kept in a small state file next to that database.
+- **Scheduled things** (reminders, event reminders, timed blocks, timed polls), reminders that can still be snoozed
+  (for a day), open polls and games, the daily word boards and scores, command usage counts (for `/stats`), and the
+  time each member last posted in a group (for `/seen`) and away statuses are kept in a small state file next to that
+  database.
 - **Web lookups** go to free public services that need no key: Open-Meteo, Wikipedia, Free Dictionary, Frankfurter
   (ECB rates), CoinGecko, Cloudflare DNS-over-HTTPS, RDAP (rdap.org), GitHub, npm, Nager.Date, Hacker News, JokeAPI,
-  xkcd, CheapShark and Open Trivia DB. `/reddit` reads posts from the [Arctic Shift](https://arctic-shift.photon-reddit.com)
+  Useless Facts, DummyJSON (quotes), xkcd, CheapShark and Open Trivia DB. `/translate` sends the text you translate to
+  MyMemory (translated.net), and `/status` opens the site you ask about. `/reddit` reads posts from the [Arctic Shift](https://arctic-shift.photon-reddit.com)
   archive and `/x` uses the [FxTwitter](https://github.com/FxEmbed/FxEmbed) API; both download media from the sites'
   own servers. `/feed` fetches the feeds a group follows. These services see the server's IP address, never yours,
   and whoever runs Rubi can route them through Tor. `/country` uses built-in data from
   [mledoze/countries](https://github.com/mledoze/countries) (ODbL) and makes no request.
 - Rubi doesn't log message contents. It logs which commands ran, for whom and how long they took.
 - Group admins can ask Rubi to DM them a [moderation log](group-admins.md#the-moderation-log) of moderation actions in
-  their group, which can include removed messages. Nothing from that log is posted in the group.
-- When Rubi leaves a group, it deletes that group's scheduled jobs, polls and last-seen records. When you leave a
-  group, your last-seen and away records there are deleted.
+  their group, which can include removed messages and the messages members `/report`. Nothing from that log is posted
+  in the group.
+- When Rubi leaves a group, it deletes that group's scheduled jobs, polls, word boards, snoozable reminders and
+  last-seen records. When you leave a group, your last-seen and away records there are deleted, along with the
+  reminders you set there and the ones set for you.
 - Web lookups go to the public service the command names (for example Open-Meteo for `/weather`). Whoever runs Rubi can
   route them through Tor.

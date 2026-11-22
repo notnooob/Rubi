@@ -34,13 +34,17 @@ lookups can go through Tor.
 - **Live replies:** slow commands answer straight away with a live message that turns into the result.
 - **Reddit and X posts in chat:** `/reddit <link>` and `/x <link>` show a post with its stats, quotes, polls and
   community notes, and attach its images and videos. Reply to a link with just `/r` or `/x` to show it.
-- **Polls and games:** reaction-based polls, trivia tournaments, Would You Rather, hangman, tic-tac-toe and a
-  daily word puzzle with a leaderboard per chat.
-- **Reminders** that survive restarts, once or repeating (`/remind every day 9:00 standup`), for yourself or another member.
+- **Polls and games:** reaction-based polls (multi-choice, or closing by themselves after a set time), trivia
+  tournaments, Would You Rather, hangman, tic-tac-toe and a daily word puzzle with a leaderboard per chat.
+- **Reminders** that survive restarts, once or repeating (`/remind every day 9:00 standup`), for yourself or another
+  member, with 💤 snooze when they go off.
+- **Reply to use a message:** reply with `/translate de`, `/define`, `/qr` or `/hash sha256` to work on that message's
+  text, or with `/r` / `/x` on a link.
 - **Group moderation** based on SimpleX member roles: kick, block (optionally for a set time), warnings with an
-  automatic limit, purge, banned words that see through sp4m-style disguises, slow mode and anti-spam for new members.
-- **A private moderation log:** admins get every moderation action by DM, never in the group.
-- **Group tools:** rules, welcome messages, events with RSVPs, shared task lists, RSS/Atom feeds and per-group
+  automatic limit and optional expiry, purge, banned words that see through sp4m-style disguises, slow mode and
+  anti-spam for new members.
+- **A private moderation log:** admins get every moderation action, and members' `/report`s, by DM, never in the group.
+- **Group tools:** rules, welcome and goodbye messages, events with RSVPs, shared task lists, RSS/Atom feeds and per-group
   command switches.
 - **Tappable commands:** commands in Rubi's replies work as buttons in DMs, and in groups that turn on Rubi's command menu.
 - **Easy to extend:** one file per command, with typed arguments, cooldowns, anti-flood and timeouts built in.
