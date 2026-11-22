@@ -59,6 +59,8 @@ export interface InteractionHandlers<S = any> {
   /** `/vote <id> <args...>` — `args` are the words after the id. */
   onButton?(ix: Interaction<S>, args: string[], ctx: CommandContext<any>): InteractionUpdate | Promise<InteractionUpdate>
   onCancel?(ix: Interaction<S>, ctx: CommandContext<any>): InteractionUpdate | Promise<InteractionUpdate>
+  /** Its time ran out: return the message's final text (e.g. "closed"), or nothing to leave the message as it is. */
+  onExpire?(ix: Interaction<S>, rt: Runtime): string | void | undefined | Promise<string | void | undefined>
 }
 
 const kinds = new Map<string, InteractionHandlers>()
@@ -72,6 +74,7 @@ export class Interactions {
   private readonly items: Collection<Interaction>
   private chains = new Map<string, Promise<unknown>>()
   private accepting = true
+  private rt: Runtime | undefined
 
   get activeCount(): number {
     return this.items.size
@@ -98,8 +101,14 @@ export class Interactions {
     private readonly log: Logger
   ) {
     this.items = store.collection<Interaction>("interactions")
-    const sweep = setInterval(() => this.sweep(), 10 * 60_000)
+    const sweep = setInterval(() => void this.sweepExpired(), 10 * 60_000)
     sweep.unref()
+  }
+
+  /** Called once the runtime is ready: expired messages can be finalized from now on (and those that expired offline are). */
+  start(rt: Runtime): void {
+    this.rt = rt
+    void this.sweepExpired()
   }
 
   create<S>(kind: string, msg: BotMessage, state: S, opts: {ttlMs?: number; ownerKey?: string} = {}): Interaction<S> {
@@ -253,8 +262,32 @@ export class Interactions {
     return ix.expiresAt !== undefined && ix.expiresAt < Date.now()
   }
 
-  private sweep(): void {
-    for (const ix of this.items.values()) if (this.expired(ix)) this.items.delete(ix.id)
+  /**
+   * Remove expired interactions. Each kind's `onExpire` can give the message a final text first (a poll shows
+   * "closed" instead of buttons that no longer work). Returns how many were removed.
+   */
+  async sweepExpired(): Promise<number> {
+    const expired = this.items.values().filter((ix) => this.expired(ix))
+    const rt = this.rt
+    await Promise.all(
+      expired.map((candidate) =>
+        this.serial(candidate.id, async () => {
+          const ix = this.items.get(candidate.id)
+          if (!ix || !this.expired(ix)) return
+          const handler = kinds.get(ix.kind)?.onExpire
+          if (rt && handler && this.accepting) {
+            try {
+              const text = await handler(ix, rt)
+              if (typeof text === "string") await rt.messenger.update(ix.ref, ix.itemId, text)
+            } catch (e) {
+              this.log.debug(`could not finalize expired ${ix.kind} message: ${describeError(e)}`)
+            }
+          }
+          this.items.delete(ix.id)
+        }).catch(() => undefined)
+      )
+    )
+    return expired.length
   }
 
   stop(): void {

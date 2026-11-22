@@ -46,7 +46,7 @@ export default defineCommand({
   cooldown: 10,
   timeout: 300,
   async run(ctx) {
-    const quoted = ctx.item.chatItem.quotedItem?.content.text
+    const quoted = ctx.quotedText
     const parts = ctx.rawArgs.trim().split(/\s+/).filter(Boolean)
     const noMedia = parts.at(-1) === "-" || /-$/.test(parts[0] ?? "")
     if (parts.at(-1) === "-") parts.pop()

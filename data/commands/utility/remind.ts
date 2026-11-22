@@ -1,4 +1,4 @@
-import {defineCommand, defineJob, describeRepeat, fmt, formatDateTime, nextRepeat, parseRepeat, parseWhen, utcOffset, type Repeat, type T} from "../../../src/sdk"
+import {defineCommand, defineJob, describeRepeat, fmt, formatDateTime, makeUi, newId, nextRepeat, parseRepeat, parseWhen, utcOffset, type Repeat, type Runtime, type T} from "../../../src/sdk"
 
 export interface ReminderPayload {
   ref: T.ChatRef
@@ -15,11 +15,37 @@ export interface ReminderPayload {
   /** Set by someone else for `name` (groups): their name and groupMemberId. */
   by?: string
   byMemberId?: number
+  /** Commands were tappable in the chat when it was set (for the 💤 snooze buttons; older reminders have none). */
+  tappable?: boolean
+  prefix?: string
 }
 
-const MIN_MS = 10_000
-const MAX_MS = 366 * 86_400_000
-const MAX_PER_USER = 25
+/** A reminder that just went off and can still be snoozed (/snooze), kept in the "snooze" store collection. */
+export interface SnoozeRecord extends Omit<ReminderPayload, "quote" | "repeat"> {
+  /** The "⏰ Reminder" message. */
+  itemId: number
+  /** When it went off. */
+  at: number
+}
+
+export const MIN_MS = 10_000
+export const MAX_MS = 366 * 86_400_000
+export const MAX_PER_USER = 25
+/** How long a reminder that went off can be snoozed. */
+export const SNOOZE_KEEP_MS = 86_400_000
+const SNOOZE_CHOICES = [
+  ["10m", "10m"],
+  ["1h", "1h"],
+  ["tomorrow", "tomorrow 9:00"],
+] as const
+
+/** The snoozable reminders, without the ones older than a day. */
+export function snoozable(rt: Runtime) {
+  const col = rt.store.collection<SnoozeRecord>("snooze")
+  const old = Date.now() - SNOOZE_KEEP_MS
+  for (const [k, r] of col.entries()) if (r.at < old) col.delete(k)
+  return col
+}
 
 defineJob<ReminderPayload>("reminder", async (job, rt) => {
   const r = job.payload
@@ -28,8 +54,19 @@ defineJob<ReminderPayload>("reminder", async (job, rt) => {
   const from = r.by ? ` from ${fmt.bold(r.by)}` : ""
   const text = fmt.lines(`⏰ ${who ? `${who}, r` : "R"}eminder${from}:`, r.text || fmt.italic("(no text)"))
   const opts = {quote: r.quote, mentions: inGroup ? {[r.name]: r.memberId!} : undefined}
-  await rt.messenger.send(r.ref, text, opts)
-  return r.repeat ? nextRepeat(r.repeat, job.at, Date.now(), r.timeZone) : undefined
+  if (r.repeat) {
+    await rt.messenger.send(r.ref, text, opts)
+    return nextRepeat(r.repeat, job.at, Date.now(), r.timeZone)
+  }
+  // one-off reminders can be snoozed for a day: 💤 buttons where commands are tappable, or /snooze as a reply
+  const id = newId()
+  const ui = r.tappable !== undefined ? makeUi(r.tappable, r.prefix) : undefined
+  const buttons = ui?.buttons(SNOOZE_CHOICES.map(([label, when]) => ui.button(`💤 ${label}`, "snooze", `${id} ${when}`)))
+  const msg = await rt.messenger.send(r.ref, fmt.lines(text, buttons ? `
+${buttons}` : undefined), opts)
+  const {quote: _quote, repeat: _repeat, ...rest} = r
+  snoozable(rt).set(id, {...rest, itemId: msg.itemId, at: Date.now()})
+  return undefined
 })
 
 export default defineCommand({
@@ -41,7 +78,8 @@ export default defineCommand({
     "(dec 24 18:00, 24 december, 2026-12-24 8am, friday 9:00; without a time it's 9:00). " +
     "Clock times use your time zone from /time set (DMs), otherwise the server's. " +
     "Repeat with every: every 2h (an hour at least), every day 9:00, every monday 18:00. " +
-    "In groups, start with @member to remind someone else (only you can cancel it). Reminders survive restarts.",
+    "In groups, start with @member to remind someone else (only you can cancel it). Reminders survive restarts. " +
+    "When a one-off reminder goes off, tap 💤 or reply to it with /snooze 30m to get it again later (for a day).",
   category: "Utility",
   args: [{name: "what", type: "text", description: "When, then what to remind you about", required: true}],
   examples: ["remind 10m stretch", "remind 1h30m check the oven", "remind tomorrow 9:00 call mom", "remind dec 24 18:00 wrap presents", "remind every day 9:00 standup", "remind @bob 1h check the PR"],
@@ -85,6 +123,8 @@ export default defineCommand({
       byMemberId: target && ctx.sender.member?.groupMemberId,
       timeZone,
       repeat,
+      tappable: ctx.ui.tappable,
+      prefix: ctx.config.prefix,
     })
     return fmt.lines(
       `⏰ Got it — I'll remind ${target ? ctx.mention(target) : "you"} ${fmt.bold(fmt.relative(parsed.at))}.`,

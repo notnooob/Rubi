@@ -10,10 +10,10 @@ Every command, with the same information as `/help <command>` in the chat. New h
 
 - 📖 **General**: [`/about`](#cmd-about) [`/help`](#cmd-help) [`/invite`](#cmd-invite) [`/ping`](#cmd-ping) [`/whoami`](#cmd-whoami)
 - 🛠 **Utility**: [`/base64`](#cmd-base64) [`/calc`](#cmd-calc) [`/choose`](#cmd-choose) [`/cleanlink`](#cmd-cleanlink) [`/convert`](#cmd-convert) [`/hash`](#cmd-hash) [`/password`](#cmd-password) [`/poll`](#cmd-poll) [`/prefs`](#cmd-prefs) [`/qr`](#cmd-qr) [`/remind`](#cmd-remind) [`/reminders`](#cmd-reminders) [`/roll`](#cmd-roll) [`/time`](#cmd-time) [`/timestamp`](#cmd-timestamp) [`/todo`](#cmd-todo) [`/uuid`](#cmd-uuid)
-- 🌐 **Web**: [`/country`](#cmd-country) [`/crypto`](#cmd-crypto) [`/currency`](#cmd-currency) [`/deals`](#cmd-deals) [`/define`](#cmd-define) [`/dns`](#cmd-dns) [`/github`](#cmd-github) [`/hn`](#cmd-hn) [`/holidays`](#cmd-holidays) [`/npm`](#cmd-npm) [`/reddit`](#cmd-reddit) [`/status`](#cmd-status) [`/weather`](#cmd-weather) [`/whois`](#cmd-whois) [`/wiki`](#cmd-wiki) [`/x`](#cmd-x)
+- 🌐 **Web**: [`/country`](#cmd-country) [`/crypto`](#cmd-crypto) [`/currency`](#cmd-currency) [`/deals`](#cmd-deals) [`/define`](#cmd-define) [`/dns`](#cmd-dns) [`/github`](#cmd-github) [`/hn`](#cmd-hn) [`/holidays`](#cmd-holidays) [`/npm`](#cmd-npm) [`/reddit`](#cmd-reddit) [`/status`](#cmd-status) [`/translate`](#cmd-translate) [`/weather`](#cmd-weather) [`/whois`](#cmd-whois) [`/wiki`](#cmd-wiki) [`/x`](#cmd-x)
 - 🎲 **Fun**: [`/8ball`](#cmd-8ball) [`/coinflip`](#cmd-coinflip) [`/fact`](#cmd-fact) [`/hangman`](#cmd-hangman) [`/joke`](#cmd-joke) [`/quote`](#cmd-quote) [`/rps`](#cmd-rps) [`/trivia`](#cmd-trivia) [`/ttt`](#cmd-ttt) [`/word`](#cmd-word) [`/wyr`](#cmd-wyr) [`/xkcd`](#cmd-xkcd)
 - 👥 **Groups**: [`/afk`](#cmd-afk) [`/antispam`](#cmd-antispam) [`/event`](#cmd-event) [`/feed`](#cmd-feed) [`/filter`](#cmd-filter) [`/groupinfo`](#cmd-groupinfo) [`/groupmenu`](#cmd-groupmenu) [`/link`](#cmd-link) [`/members`](#cmd-members) [`/rules`](#cmd-rules) [`/seen`](#cmd-seen) [`/slowmode`](#cmd-slowmode) [`/toggle`](#cmd-toggle) [`/welcome`](#cmd-welcome)
-- 🛡 **Moderation**: [`/block`](#cmd-block) [`/delete`](#cmd-delete) [`/kick`](#cmd-kick) [`/modlog`](#cmd-modlog) [`/purge`](#cmd-purge) [`/role`](#cmd-role) [`/unblock`](#cmd-unblock) [`/unwarn`](#cmd-unwarn) [`/warn`](#cmd-warn) [`/warnings`](#cmd-warnings)
+- 🛡 **Moderation**: [`/block`](#cmd-block) [`/delete`](#cmd-delete) [`/kick`](#cmd-kick) [`/modlog`](#cmd-modlog) [`/purge`](#cmd-purge) [`/report`](#cmd-report) [`/role`](#cmd-role) [`/unblock`](#cmd-unblock) [`/unwarn`](#cmd-unwarn) [`/warn`](#cmd-warn) [`/warnings`](#cmd-warnings)
 - ⚙️ **Admin**: [`/broadcast`](#cmd-broadcast) [`/groups`](#cmd-groups) [`/join`](#cmd-join) [`/leave`](#cmd-leave) [`/reload`](#cmd-reload) [`/stats`](#cmd-stats)
 
 ## 📖 General
@@ -109,9 +109,11 @@ Handy tools.
 
 Encode or decode Base64
 
+Reply to a message with /base64 encode or /base64 decode to use that message's text.
+
 | | |
 |---|---|
-| Usage | `/base64 <encode\|decode> <text...>` |
+| Usage | `/base64 <encode\|decode> [text...]` |
 | Where | DMs and groups |
 | Who | Everyone |
 | Cooldown | 2 s |
@@ -120,7 +122,7 @@ Encode or decode Base64
 **Arguments**
 
 - `action` (required, one of `encode`, `decode`): encode or decode
-- `text` (required, text): The text
+- `text` (optional, text): The text (or reply to a message)
 
 **Examples**
 
@@ -230,9 +232,11 @@ Length, mass, temperature, area, volume, speed, time, data, energy, power, press
 
 Hash text: /hash sha256 hello
 
+Reply to a message with /hash <algorithm> to hash that message's text.
+
 | | |
 |---|---|
-| Usage | `/hash <md5\|sha1\|sha256\|sha512\|sha3-256> <text...>` |
+| Usage | `/hash <md5\|sha1\|sha256\|sha512\|sha3-256> [text...]` |
 | Where | DMs and groups |
 | Who | Everyone |
 | Cooldown | 2 s |
@@ -241,7 +245,7 @@ Hash text: /hash sha256 hello
 **Arguments**
 
 - `algorithm` (required, one of `md5`, `sha1`, `sha256`, `sha512`, `sha3-256`): Hash algorithm
-- `text` (required, text): Text to hash
+- `text` (optional, text): Text to hash (or reply to a message)
 
 **Examples**
 
@@ -279,7 +283,7 @@ Generated with a cryptographic RNG and not stored by Rubi separately. It remains
 
 Start a poll: /poll Pizza tonight? | yes | no | maybe
 
-Separate the question and options with |. With no options it's a 👍/👎 poll. Up to 8 options. Vote by reacting with an option's emoji (I add the reactions myself for polls with up to 3 options — they don't count as votes), or tap its vote button in DMs. One vote per person; only its creator can close it with /endpoll.
+Separate the question and options with |. With no options it's a 👍/👎 poll. Up to 8 options. Vote by reacting with an option's emoji (I add the reactions myself for polls with up to 3 options — they don't count as votes), or tap its vote button in DMs. One vote per person; only its creator can close it with /endpoll. Start with multi to let people pick several options (SimpleX allows 3 reactions per person, so more picks need the buttons), and/or a duration (1m to 30d) to close it automatically: /poll multi 2h Lunch? | pizza | sushi | tacos.
 
 | | |
 |---|---|
@@ -290,12 +294,14 @@ Separate the question and options with |. With no options it's a 👍/👎 poll.
 
 **Arguments**
 
-- `poll` (required, text): Question | option | option
+- `poll` (required, text): [multi] [duration] Question | option | option
 
 **Examples**
 
 - `/poll Movie night? | Friday | Saturday | Sunday`
 - `/poll Should we start a book club?`
+- `/poll 1h Pizza tonight? | yes | no`
+- `/poll multi Which days work? | Mon | Tue | Wed | Thu`
 
 <a id="cmd-prefs"></a>
 ### `/prefs`
@@ -327,9 +333,11 @@ Defaults are used only in direct chats when a command omits a place, country or 
 
 Make a QR code: /qr https://simplex.chat
 
+Reply to a message with /qr to encode that message's text.
+
 | | |
 |---|---|
-| Usage | `/qr <text...>` |
+| Usage | `/qr [text...]` |
 | Where | DMs and groups |
 | Who | Everyone |
 | Cooldown | 5 s |
@@ -337,7 +345,7 @@ Make a QR code: /qr https://simplex.chat
 
 **Arguments**
 
-- `text` (required, text): Text or link to encode
+- `text` (optional, text): Text or link to encode (or reply to a message)
 
 **Examples**
 
@@ -348,7 +356,7 @@ Make a QR code: /qr https://simplex.chat
 
 Set a reminder: /remind 10m stretch
 
-When: a duration (30s, 10m, 1h30m, 2d, 1w), a clock time (18:30, 6pm, tomorrow 9:00) or a date (dec 24 18:00, 24 december, 2026-12-24 8am, friday 9:00; without a time it's 9:00). Clock times use your time zone from /time set (DMs), otherwise the server's. Repeat with every: every 2h (an hour at least), every day 9:00, every monday 18:00. In groups, start with @member to remind someone else (only you can cancel it). Reminders survive restarts.
+When: a duration (30s, 10m, 1h30m, 2d, 1w), a clock time (18:30, 6pm, tomorrow 9:00) or a date (dec 24 18:00, 24 december, 2026-12-24 8am, friday 9:00; without a time it's 9:00). Clock times use your time zone from /time set (DMs), otherwise the server's. Repeat with every: every 2h (an hour at least), every day 9:00, every monday 18:00. In groups, start with @member to remind someone else (only you can cancel it). Reminders survive restarts. When a one-off reminder goes off, tap 💤 or reply to it with /snooze 30m to get it again later (for a day).
 
 | | |
 |---|---|
@@ -460,9 +468,9 @@ No argument: the current time. A number: Unix seconds (or milliseconds if it's 1
 <a id="cmd-todo"></a>
 ### `/todo`
 
-Manage a personal or group task list
+Personal or group task list
 
-Use add, list, claim, done and remove. Tasks are stored in this chat; creators and assignees control completion.
+Use add, list, claim, done, reopen, remove, clear and (in groups) assign <id> @member. Tasks are stored in this chat; creators and assignees can complete or reopen a task, only its creator can assign or remove it, and clear removes your own completed tasks.
 
 | | |
 |---|---|
@@ -473,8 +481,8 @@ Use add, list, claim, done and remove. Tasks are stored in this chat; creators a
 
 **Arguments**
 
-- `action` (optional, word or "quoted text"): add, list, claim, done or remove
-- `value` (optional, text): Task id or text
+- `action` (optional, word or "quoted text"): add, list, claim, done, reopen, assign, remove or clear
+- `value` (optional, text): Task id or text (assign: id and @member)
 
 **Examples**
 
@@ -482,6 +490,8 @@ Use add, list, claim, done and remove. Tasks are stored in this chat; creators a
 - `/todo list`
 - `/todo claim abc123`
 - `/todo done abc123`
+- `/todo assign abc123 @bob`
+- `/todo clear`
 
 <a id="cmd-uuid"></a>
 ### `/uuid`
@@ -616,9 +626,11 @@ Finds a game by title and shows its Steam app id, historical low and every curre
 
 Dictionary definition: /define serendipity
 
+Reply to a message with /define to look up its first word.
+
 | | |
 |---|---|
-| Usage | `/define <word...>` |
+| Usage | `/define [word...]` |
 | Where | DMs and groups |
 | Who | Everyone |
 | Cooldown | 5 s |
@@ -627,7 +639,7 @@ Dictionary definition: /define serendipity
 
 **Arguments**
 
-- `word` (required, text): English word
+- `word` (optional, text): English word (or reply to a message)
 
 **Examples**
 
@@ -802,6 +814,33 @@ Only public addresses are allowed (no local network).
 
 - `/status simplex.chat`
 
+<a id="cmd-translate"></a>
+### `/translate`
+
+Translate text: /translate de good morning
+
+Give the target language (a code like de or pt-BR, or a name like german), then the text — or reply to a message with /translate de. The source language is detected; name it with fr>en if the guess is wrong. Up to 500 characters per translation. The text is sent to MyMemory (translated.net) to be translated.
+
+| | |
+|---|---|
+| Usage | `/translate <lang> [text...]` |
+| Where | DMs and groups |
+| Who | Everyone |
+| Cooldown | 5 s |
+| Aliases | `/tr` |
+| Live reply | yes: a placeholder appears right away and turns into the answer |
+
+**Arguments**
+
+- `lang` (required, word or "quoted text"): Target language, or source>target
+- `text` (optional, text): Text to translate (or reply to a message)
+
+**Examples**
+
+- `/translate de good morning`
+- `/translate fr>en bonjour tout le monde`
+- `/translate japanese thank you`
+
 <a id="cmd-weather"></a>
 ### `/weather`
 
@@ -906,7 +945,7 @@ Games and fun stuff.
 <a id="cmd-8ball"></a>
 ### `/8ball`
 
-Ask the magic 8-ball a yes/no question
+Ask the magic 8-ball
 
 | | |
 |---|---|
@@ -1458,25 +1497,27 @@ Name commands or whole categories, separated by commas or spaces: /toggle off fu
 
 Greet new members (admins: /welcome set Hi {name}!)
 
-{name} becomes an @mention of the new member and {group} the group name. /welcome off disables it, /welcome test previews it.
+{name} becomes an @mention of the new member and {group} the group name. /welcome off disables it, /welcome test previews it. /welcome goodbye <text> says goodbye to members who leave on their own ({name} in bold, {group}); /welcome goodbye off turns it off.
 
 | | |
 |---|---|
-| Usage | `/welcome [set\|off\|test] [text...]` |
+| Usage | `/welcome [set\|off\|test\|goodbye] [text...]` |
 | Where | Groups only |
 | Who | Group admins |
 | Cooldown | 2 s |
 
 **Arguments**
 
-- `action` (optional, one of `set`, `off`, `test`): set, off or test
-- `text` (optional, text): Welcome message (for set)
+- `action` (optional, one of `set`, `off`, `test`, `goodbye`): set, off, test or goodbye
+- `text` (optional, text): Welcome message (for set), or the goodbye message
 
 **Examples**
 
 - `/welcome set Welcome {name}! Read /rules please 🙂`
 - `/welcome test`
 - `/welcome off`
+- `/welcome goodbye Bye {name}, thanks for stopping by!`
+- `/welcome goodbye off`
 
 ## 🛡 Moderation
 
@@ -1600,6 +1641,29 @@ Removes the newest messages for everyone (up to 50), after you confirm. Add a me
 - `/purge 10`
 - `/purge 20 @spammer`
 
+<a id="cmd-report"></a>
+### `/report`
+
+Report a message to admins (reply)
+
+Reply to a message with /report and an optional reason. Admins who turned on the moderation log (/modlog on) get it by DM, with the message text. If I'm a moderator, I remove your /report message so the report stays discreet, and confirm by DM when I can.
+
+| | |
+|---|---|
+| Usage | `/report [reason...]` |
+| Where | Groups only |
+| Who | Everyone |
+| Cooldown | none |
+
+**Arguments**
+
+- `reason` (optional, text): Why (optional)
+
+**Examples**
+
+- `/report spam link`
+- `/report`
+
 <a id="cmd-role"></a>
 ### `/role`
 
@@ -1666,7 +1730,7 @@ Clear a member's warnings
 
 Warn a member (auto-removed at the warning limit)
 
-Warnings are stored per group. At the limit (default 3, change with /warn limit <n>, 0 = never) I remove the member if I'm an admin.
+Warnings are stored per group. At the limit (default 3, change with /warn limit <n>, 0 = never) I remove the member if I'm an admin. Admins can make warnings expire with /warn expire 30d: a member's warnings reset after that long without a new one (/warn expire off: never).
 
 | | |
 |---|---|
@@ -1677,13 +1741,14 @@ Warnings are stored per group. At the limit (default 3, change with /warn limit 
 
 **Arguments**
 
-- `member` (required, word or "quoted text"): Who to warn (or: limit)
-- `reason` (optional, text): Why (or the new limit)
+- `member` (required, word or "quoted text"): Who to warn (or: limit, expire)
+- `reason` (optional, text): Why (or the new limit / expiry)
 
 **Examples**
 
 - `/warn @bob please keep it civil`
 - `/warn limit 5`
+- `/warn expire 30d`
 
 <a id="cmd-warnings"></a>
 ### `/warnings`
@@ -1827,6 +1892,29 @@ Close a poll and show the result
 **Arguments**
 
 - `id` (required, word or "quoted text"): Poll id (from the poll message)
+
+<a id="cmd-snooze"></a>
+### `/snooze`
+
+Snooze a reminder that just went off
+
+Tap a 💤 button under a reminder, or reply to the reminder with /snooze and when (10m, 1h, tomorrow 9:00; default 10m). Reminders can be snoozed for a day after they go off, by the person who set them or the person they're for.
+
+| | |
+|---|---|
+| Usage | `/snooze [when...]` |
+| Where | DMs and groups |
+| Who | Everyone |
+| Cooldown | none |
+
+**Arguments**
+
+- `when` (optional, text): When: 10m, 1h, tomorrow 9:00 (the buttons add an id first)
+
+**Examples**
+
+- `/snooze 30m`
+- `/snooze tomorrow 9:00`
 
 <a id="cmd-unremind"></a>
 ### `/unremind`

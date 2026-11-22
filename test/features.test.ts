@@ -13,6 +13,7 @@ import {evaluate} from "../src/util/calc"
 import * as fmt from "../src/util/format"
 import {parseDuration, parseWhen} from "../src/util/time"
 import {dm, groupMsg, makeHarness, member, settle, type Harness} from "./helpers/fake"
+import {parsePollOptions} from "../data/commands/utility/poll"
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -569,5 +570,166 @@ describe("joining a group", () => {
     h = makeHarness()
     texts = await join(h, groupInfoOf({menu: true}))
     assert.deepEqual(texts, ["Hi, I'm Rubi. Send /help."])
+  })
+})
+
+/** Make every scheduled job due and run them once. */
+async function runDueJobs(h: Harness): Promise<void> {
+  for (const job of h.rt.scheduler.list()) job.at = Date.now() - 1
+  h.rt.scheduler.start(h.rt)
+  await sleep(20)
+  await h.rt.scheduler.drain(500)
+  h.rt.scheduler.stop()
+}
+
+describe("expiring interactions", () => {
+  it("finalize their message instead of leaving dead buttons", async () => {
+    const h = makeHarness()
+    await h.receive(dm("/poll Lunch? | pizza | sushi"))
+    const pollMsg = h.chat.sent.find((s) => s.kind === "send")!
+    await h.receive(dm("/hangman", {contactId: 8}))
+    for (const kind of ["poll", "hangman"]) h.rt.interactions.find((ix) => ix.kind === kind)!.expiresAt = Date.now() - 1
+    h.rt.interactions.start(h.rt)
+    await h.rt.interactions.sweepExpired()
+    await sleep(20)
+    assert.match(h.chat.textOf(pollMsg.itemId)!, /Poll closed · 0 votes/)
+    assert.doesNotMatch(h.chat.textOf(pollMsg.itemId)!, /endpoll/)
+    const game = h.chat.sent.find((s) => s.ref === "@8" && s.kind === "send")!
+    assert.match(h.chat.textOf(game.itemId)!, /⌛ Expired, the word was \*[A-Z]+\*/)
+    assert.equal(h.rt.interactions.activeCount, 0)
+  })
+})
+
+describe("timed and multi-choice polls", () => {
+  it("parses leading options", async () => {
+    assert.deepEqual(parsePollOptions("multi 2h Lunch? | a | b"), {text: "Lunch? | a | b", multi: true, durationMs: 7_200_000})
+    assert.deepEqual(parsePollOptions("2h multi Lunch?"), {text: "Lunch?", multi: true, durationMs: 7_200_000})
+    assert.deepEqual(parsePollOptions("2 cats or 3? | a | b"), {text: "2 cats or 3? | a | b", multi: false, durationMs: undefined})
+    assert.deepEqual(parsePollOptions("multi"), {text: "multi", multi: false, durationMs: undefined})
+  })
+
+  it("closes a timed poll by itself", async () => {
+    const h = makeHarness()
+    await h.receive(dm("/poll 30s Too short? | a | b"))
+    assert.match(h.chat.last()!.text!, /1 minute to 30 days/)
+    await h.receive(dm("/poll 1h Lunch? | pizza | sushi"))
+    const pollMsg = h.chat.sent.filter((s) => s.kind === "send").at(-1)!
+    assert.match(h.chat.textOf(pollMsg.itemId)!, /⏳ Closes /)
+    const job = h.rt.scheduler.list().find((j) => j.kind === "poll-close")!
+    assert.ok(Math.abs(job.at - (Date.now() + 3_600_000)) < 5_000)
+    await runDueJobs(h)
+    assert.match(h.chat.textOf(pollMsg.itemId)!, /Poll closed/)
+    assert.doesNotMatch(h.chat.textOf(pollMsg.itemId)!, /Closes/)
+    assert.equal(h.rt.interactions.activeCount, 0)
+  })
+
+  it("/endpoll cancels the closing job", async () => {
+    const h = makeHarness()
+    await h.receive(dm("/poll 1h Lunch? | pizza | sushi"))
+    const id = voteId(h.chat.textOf(h.chat.sent.find((s) => s.kind === "send")!.itemId)!)!
+    await h.receive(dm(`/endpoll ${id}`))
+    assert.equal(h.rt.scheduler.list().filter((j) => j.kind === "poll-close").length, 0)
+  })
+
+  it("counts several picks per person, by reactions and buttons", async () => {
+    const h = makeHarness()
+    const item = groupMsg("/poll multi Days? | Mon | Tue | Wed", {menu: true})
+    await h.receive(item)
+    const pollMsg = h.chat.sent.find((s) => s.kind === "send")!
+    const text = () => h.chat.textOf(pollMsg.itemId)!
+    const carol = {type: "groupRcv", groupMember: member(3, "carol")} as any
+    await h.react(item.chatInfo, pollMsg.itemId, "👍", carol)
+    await h.react(item.chatInfo, pollMsg.itemId, "❤️", carol)
+    assert.match(text(), /1 voter · .*pick as many as you like/)
+    assert.match(text(), /Mon\*\n▰+▱* 1 \(100%\)/)
+    assert.match(text(), /Tue\*\n▰+▱* 1 \(100%\)/)
+    await h.react(item.chatInfo, pollMsg.itemId, "👍", {type: "groupRcv", groupMember: member(4, "dave")} as any)
+    assert.match(text(), /2 voters/)
+    assert.match(text(), /Mon\*\n▰+▱* 2 \(100%\)/)
+    assert.match(text(), /Tue\*\n▰+▱* 1 \(50%\)/)
+    await h.react(item.chatInfo, pollMsg.itemId, "👍", carol, false)
+    assert.match(text(), /Mon\*\n▰+▱* 1 \(50%\)/)
+    const id = voteId(text())!
+    await h.receive(groupMsg(`/vote ${id} 3`, {memberId: 3, name: "carol", menu: true}))
+    assert.match(text(), /Wed\*\n▰+▱* 1 \(50%\)/)
+    await h.receive(groupMsg(`/vote ${id} 3`, {memberId: 3, name: "carol", menu: true}))
+    assert.match(text(), /Wed\*\n▱+ 0 \(0%\)/, "tapping again removes the pick")
+    await h.receive(groupMsg("/poll multi Yes or no?", {memberId: 5, name: "eve", menu: true}))
+    assert.match(h.chat.last()!.text!, /needs options/)
+  })
+})
+
+describe("reminder snooze", () => {
+  it("💤 buttons and /snooze as a reply bring a reminder back", async () => {
+    const h = makeHarness()
+    await h.receive(dm("/remind 10m stretch"))
+    await runDueJobs(h)
+    const fired = h.chat.last()!
+    assert.match(fired.text!, /⏰ Reminder:\nstretch/)
+    const id = fired.text!.match(/\/'snooze ([0-9a-f]+) 10m'/)![1]!
+    assert.match(fired.text!, /💤 tomorrow/)
+
+    await h.receive(dm(`/snooze ${id} 1h`, {contactId: 8}))
+    assert.match(h.chat.last()!.text!, /No reminder to snooze/, "another chat can't snooze it")
+    await h.receive(dm(`/snooze ${id} 1h`))
+    assert.match(h.chat.last()!.text!, /Snoozed — I'll remind you again \*in 1h\*/)
+    const job = h.rt.scheduler.list<{quote: number; text: string}>().find((j) => j.kind === "reminder")!
+    assert.equal(job.payload.quote, fired.itemId)
+    assert.equal(job.payload.text, "stretch")
+    await h.receive(dm(`/snooze ${id} 1h`))
+    assert.match(h.chat.last()!.text!, /No reminder to snooze/, "once per time it goes off")
+
+    // it fires again and can be snoozed by replying to it
+    await runDueJobs(h)
+    const again = h.chat.last()!
+    const reply = dm("/snooze 30m", {quotedText: again.text!})
+    ;(reply.chatItem as any).quotedItem.itemId = again.itemId
+    await h.receive(reply)
+    assert.match(h.chat.last()!.text!, /again \*in 30m\*/)
+  })
+
+  it("only the creator or the person it's for can snooze it in a group", async () => {
+    const h = makeHarness()
+    h.chat.members = [member(2, "bob"), member(3, "carol"), member(4, "dave")]
+    await h.receive(groupMsg("/remind @carol 10m check the PR", {memberId: 2, name: "bob"}))
+    await runDueJobs(h)
+    const fired = h.chat.last()!
+    assert.match(fired.text!, /from \*bob\*/)
+    assert.doesNotMatch(fired.text!, /snooze/, "no buttons where commands aren't tappable")
+    const quote = {itemId: fired.itemId, chatDir: {type: "groupSnd"} as T.CIDirection, text: fired.text!}
+    await h.receive(groupMsg("/snooze 1h", {memberId: 4, name: "dave", quote}))
+    assert.match(h.chat.last()!.text!, /Only the person who set this reminder, or who it's for/)
+    await h.receive(groupMsg("/snooze 1h", {memberId: 3, name: "carol", quote}))
+    assert.match(h.chat.last()!.text!, /I'll remind you again/)
+  })
+})
+
+describe("/todo reopen, clear and assign", () => {
+  it("follows the creator/assignee rules", async () => {
+    const h = makeHarness()
+    h.chat.members = [member(2, "bob"), member(3, "carol")]
+    const bob = {memberId: 2, name: "bob"}
+    const carol = {memberId: 3, name: "carol"}
+    await h.receive(groupMsg("/todo add bring projector", bob))
+    const id = h.chat.last()!.text!.match(/`([0-9a-f]{6})`/)![1]
+    await h.receive(groupMsg(`/todo assign ${id} @carol`, carol))
+    assert.match(h.chat.last()!.text!, /Only the task creator can assign/)
+    await h.receive(groupMsg(`/todo assign ${id} @carol`, bob))
+    assert.match(h.chat.last()!.text!, /is assigned to .*carol/)
+    await h.receive(groupMsg(`/todo done ${id}`, carol))
+    assert.match(h.chat.last()!.text!, /Completed/)
+    await h.receive(groupMsg(`/todo reopen ${id}`, carol))
+    assert.match(h.chat.last()!.text!, /Reopened/)
+    await h.receive(groupMsg(`/todo reopen ${id}`, carol))
+    assert.match(h.chat.last()!.text!, /isn't complete/)
+    await h.receive(groupMsg(`/todo done ${id}`, carol))
+    await h.receive(groupMsg("/todo clear", carol))
+    assert.match(h.chat.last()!.text!, /no completed tasks to clear/)
+    await h.receive(groupMsg("/todo clear", bob))
+    assert.match(h.chat.last()!.text!, /Cleared 1 completed task/)
+    await h.receive(groupMsg("/todo list", bob))
+    assert.match(h.chat.last()!.text!, /Nothing on the task list/)
+    await h.receive(dm("/todo assign abc123 @carol"))
+    assert.match(h.chat.last()!.text!, /No task called/)
   })
 })

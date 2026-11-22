@@ -4,14 +4,17 @@ export default defineCommand({
   name: "base64",
   aliases: ["b64"],
   description: "Encode or decode Base64",
+  details: "Reply to a message with /base64 encode or /base64 decode to use that message's text.",
   category: "Utility",
   args: [
     {name: "action", type: "string", description: "encode or decode", required: true, choices: ["encode", "decode"]},
-    {name: "text", type: "text", description: "The text", required: true},
+    {name: "text", type: "text", description: "The text (or reply to a message)"},
   ],
   examples: ["base64 encode hello", "base64 decode aGVsbG8="],
   run(ctx) {
-    const {action, text} = ctx.args
+    const {action} = ctx.args
+    const text = ctx.args.text ?? ctx.quotedText
+    if (text === undefined) return ctx.usageError("Give the text, or reply to a message.")
     if (action === "encode") return fmt.codeBlock(Buffer.from(text, "utf8").toString("base64"))
     const clean = text.replace(/\s/g, "").replace(/-/g, "+").replace(/_/g, "/")
     if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean)) return ctx.usageError("That isn't valid Base64.")

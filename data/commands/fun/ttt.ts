@@ -14,7 +14,7 @@ interface TttState {
   O: Player
   board: (Side | "")[]
   turn: Side
-  result?: Side | "draw" | "stopped"
+  result?: Side | "draw" | "stopped" | "expired"
   prefix: string
   tappable: boolean
 }
@@ -29,7 +29,7 @@ function render(ix: Interaction<TttState>): string {
   const ui = makeUi(s.tappable, s.prefix)
   const grid = [0, 3, 6].map((r) => s.board.slice(r, r + 3).map((v, i) => (v ? MARK[v] : CELL[r + i])).join("")).join("\n")
   const status =
-    s.result === "draw" ? "🤝 Draw!" : s.result === "stopped" ? fmt.italic("Stopped.") : s.result ? `🏆 ${fmt.bold(s[s.result].name)} wins!` : `${MARK[s.turn]} ${fmt.bold(s[s.turn].name)}'s turn · ${ui.cmd("ttt", "<1-9>")}`
+    s.result === "draw" ? "🤝 Draw!" : s.result === "stopped" ? fmt.italic("Stopped.") : s.result === "expired" ? "⌛ Expired." : s.result ? `🏆 ${fmt.bold(s[s.result].name)} wins!` : `${MARK[s.turn]} ${fmt.bold(s[s.turn].name)}'s turn · ${ui.cmd("ttt", "<1-9>")}`
   const free = s.board.flatMap((v, i) => (v ? [] : [i + 1]))
   return fmt.lines(
     `${MARK.X} ${fmt.bold(s.X.name)} vs ${MARK.O} ${fmt.bold(s.O.name)}`,
@@ -42,7 +42,12 @@ function render(ix: Interaction<TttState>): string {
   )
 }
 
-defineInteraction<TttState>("ttt", {})
+defineInteraction<TttState>("ttt", {
+  onExpire(ix) {
+    ix.state.result = "expired"
+    return render(ix)
+  },
+})
 
 export default defineCommand({
   name: "ttt",
@@ -80,7 +85,7 @@ export default defineCommand({
         else ctx.rt.interactions.save(ix)
         if (s.result === "draw") return "🤝 It's a draw!"
         if (s.result === "stopped") return "✅ Game stopped."
-        if (s.result) return `🏆 ${fmt.bold(s[s.result].name)} wins!`
+        if (s.result === "X" || s.result === "O") return `🏆 ${fmt.bold(s[s.result].name)} wins!`
         await ctx.react("✅")
         return ""
       })

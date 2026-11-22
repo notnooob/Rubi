@@ -72,6 +72,7 @@ so Rubi runs without a `.env`. `.env.example` lists every variable with comments
 | `RUBI_DEFAULT_COOLDOWN` | `2` | Seconds between uses of the same command, per person. |
 | `RUBI_FLOOD_MAX` / `RUBI_FLOOD_WINDOW_MS` | `6` / `15000` | Anti-flood: at most this many commands per person per window. |
 | `RUBI_HTTP_PROXY` | *(none)* | Send web lookups through a proxy, e.g. `socks5://127.0.0.1:9050` for Tor. |
+| `RUBI_TRANSLATE_EMAIL` | *(none)* | Contact email sent to MyMemory with each `/translate` request, which raises its small anonymous daily quota. |
 | `RUBI_MEDIA_MAX_MB` | `50` | Largest file `/reddit` and `/x` download and attach. |
 | `RUBI_FFMPEG` | `ffmpeg` | Path to ffmpeg (adds sound to Reddit videos). Set it to an empty value to turn this off. |
 | `RUBI_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`. |

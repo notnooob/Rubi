@@ -10,7 +10,7 @@ export default defineCommand({
   args: [{name: "url", type: "text", description: "HTTP(S) URL"}],
   examples: ["cleanlink https://example.org/?utm_source=newsletter&id=7"],
   run(ctx) {
-    const input = ctx.args.url?.trim() || firstHttpUrl(ctx.item.chatItem.quotedItem?.content.text ?? "")
+    const input = ctx.args.url?.trim() || firstHttpUrl(ctx.quotedText ?? "")
     if (!input) return ctx.usageError("Give an HTTP(S) URL or reply to a message containing one.")
     try {
       const result = cleanTrackingUrl(input)

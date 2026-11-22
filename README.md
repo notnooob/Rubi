@@ -30,7 +30,7 @@ lookups can go through Tor.
 
 ## Features
 
-- **80 commands** in 7 categories. `/help` builds itself from them and only lists what you can run in the current chat.
+- **82 commands** in 7 categories. `/help` builds itself from them and only lists what you can run in the current chat.
 - **Live replies:** slow commands answer straight away with a live message that turns into the result.
 - **Reddit and X posts in chat:** `/reddit <link>` and `/x <link>` show a post with its stats, quotes, polls and
   community notes, and attach its images and videos. Reply to a link with just `/r` or `/x` to show it.
@@ -109,10 +109,10 @@ every group setting.
 |---|---|
 | General | `/help` `/whoami` `/ping` `/about` `/invite` |
 | Utility | `/remind` `/reminders` `/poll` `/calc` `/convert` `/prefs` `/todo` `/cleanlink` `/roll` `/choose` `/time` `/qr` `/uuid` `/password` `/hash` `/base64` `/timestamp` |
-| Web | `/reddit` `/x` `/deals` `/weather` `/wiki` `/define` `/currency` `/crypto` `/status` `/dns` `/whois` `/github` `/npm` `/country` `/holidays` `/hn` |
+| Web | `/reddit` `/x` `/deals` `/translate` `/weather` `/wiki` `/define` `/currency` `/crypto` `/status` `/dns` `/whois` `/github` `/npm` `/country` `/holidays` `/hn` |
 | Fun | `/8ball` `/coinflip` `/rps` `/trivia` `/wyr` `/hangman` `/ttt` `/word` `/joke` `/fact` `/quote` `/xkcd` |
 | Groups | `/groupinfo` `/members` `/rules` `/welcome` `/event` `/feed` `/link` `/antispam` `/filter` `/slowmode` `/toggle` `/seen` `/afk` `/groupmenu` |
-| Moderation | `/kick` `/role` `/block` `/unblock` `/warn` `/warnings` `/unwarn` `/delete` `/purge` `/modlog` |
+| Moderation | `/kick` `/role` `/block` `/unblock` `/warn` `/warnings` `/unwarn` `/report` `/delete` `/purge` `/modlog` |
 | Admin | `/reload` `/stats` `/groups` `/leave` `/broadcast` `/join` |
 
 Send `/help <command>` in chat for usage and examples, or browse the

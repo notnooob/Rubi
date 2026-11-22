@@ -1,4 +1,4 @@
-import {addWarning, chatUtil, defineEvent, describeError, findBlocked, fmt, modLog, roleAtLeast, T, type Runtime} from "../../src/sdk"
+import {addWarning, capSize, chatUtil, defineEvent, describeError, findBlocked, fmt, modLog, roleAtLeast, T, type Runtime} from "../../src/sdk"
 import type {UnblockPayload} from "../commands/moderation/block"
 
 /**
@@ -37,8 +37,10 @@ export async function automod(rt: Runtime, ci: T.AChatItem, opts: {edited?: bool
       notice = `🐢 ${fmt.mention(name)}, slow mode is on: one message every ${fmt.duration(s.slowmodeMs)}. Wait ${fmt.duration(s.slowmodeMs - (at - last))}.`
       log = `slow mode removed a message from ${name}: ${text}`
     } else {
-      if (lastPost.size > 20_000) lastPost.clear()
+      // re-insert so the oldest posters are the ones dropped at the cap
+      lastPost.delete(key)
       lastPost.set(key, at)
+      capSize(lastPost, 20_000)
     }
   }
   if (!notice) return

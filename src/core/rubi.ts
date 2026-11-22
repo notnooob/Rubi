@@ -14,6 +14,7 @@ import {Pages} from "./pages"
 import {Prompts} from "./prompts"
 import {Scheduler} from "./scheduler"
 import {Store} from "./store"
+import {loadStats} from "./stats"
 import {Dispatcher} from "./dispatcher"
 import {describeChatError, describeError} from "./errors"
 import {EventBus} from "./events"
@@ -42,7 +43,7 @@ export class Rubi implements Runtime {
   readonly commands: CommandRegistry
   readonly events: EventBus
   readonly limiter = new RateLimiter()
-  readonly stats: Stats = {commandsRun: 0, commandsFailed: 0, perCommand: new Map()}
+  readonly stats: Stats
   readonly startedAt = new Date()
   readonly http: Http
   readonly store: Store
@@ -71,6 +72,7 @@ export class Rubi implements Runtime {
     this.events = new EventBus(this.log.child("events"))
     this.http = new Http(config.http.userAgent, config.http.proxy)
     this.store = new Store(path.resolve(config.stateFile), this.log.child("store"))
+    this.stats = loadStats(this.store)
     this.scheduler = new Scheduler(this.store, this.log.child("scheduler"))
     this.interactions = new Interactions(this.store, this.log.child("interactions"))
     this.tempFiles = new TempFiles(this.log.child("files"))
@@ -138,6 +140,7 @@ export class Rubi implements Runtime {
     this._data = new ChatData(chat)
     this.events.setReady(this)
     this.scheduler.start(this)
+    this.interactions.start(this)
     // attachments left over from a previous run (their uploads are done or gone by now)
     void sweepMedia(cfg.media.dir, 0)
     void this.syncGroupMenus().catch((e) => this.log.warn("group menu sync failed:", describeError(e)))
@@ -198,7 +201,11 @@ export class Rubi implements Runtime {
     const groups = await this.chat.apiListGroups(this.user.userId)
     for (const g of groups) {
       const current = g.groupProfile.groupPreferences?.commands
-      if (!current?.length || g.membership.memberRole !== "owner") continue
+      if (!current?.length) continue
+      if (g.membership.memberRole !== "owner") {
+        this.log.debug(`not updating the command menu of #${g.groupProfile.displayName}: I'm no longer an owner there`)
+        continue
+      }
       const {disabled} = await this.data.group(g).get()
       const menu = this.commands.menu({forGroup: true, maxBytes: groupMenuBudget(g.groupProfile), exclude: disabled})
       if (JSON.stringify(current) === JSON.stringify(menu)) continue

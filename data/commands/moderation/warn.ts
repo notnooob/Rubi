@@ -1,17 +1,19 @@
-import {addWarning, assertCanModerate, defineCommand, fmt, modLog, parseNumeric} from "../../../src/sdk"
+import {addWarning, assertCanModerate, defineCommand, fmt, modLog, parseDuration, parseNumeric} from "../../../src/sdk"
 
 export default defineCommand({
   name: "warn",
   description: "Warn a member (auto-removed at the warning limit)",
-  details: "Warnings are stored per group. At the limit (default 3, change with /warn limit <n>, 0 = never) I remove the member if I'm an admin.",
+  details:
+    "Warnings are stored per group. At the limit (default 3, change with /warn limit <n>, 0 = never) I remove the member if I'm an admin. " +
+    "Admins can make warnings expire with /warn expire 30d: a member's warnings reset after that long without a new one (/warn expire off: never).",
   category: "Moderation",
   scope: "group",
   permission: "moderator",
   args: [
-    {name: "member", type: "string", description: "Who to warn (or: limit)", required: true},
-    {name: "reason", type: "text", description: "Why (or the new limit)"},
+    {name: "member", type: "string", description: "Who to warn (or: limit, expire)", required: true},
+    {name: "reason", type: "text", description: "Why (or the new limit / expiry)"},
   ],
-  examples: ["warn @bob please keep it civil", "warn limit 5"],
+  examples: ["warn @bob please keep it civil", "warn limit 5", "warn expire 30d"],
   async run(ctx) {
     if (ctx.args.member.toLowerCase() === "limit") {
       if (!ctx.can("admin")) return ctx.fail("Only admins can change the warning limit.")
@@ -22,6 +24,25 @@ export default defineCommand({
       })
       void modLog(ctx.rt, ctx.group!, `${ctx.sender.displayName} set the warning limit to ${n || "never"}`)
       return n ? `⚠️ Members are now removed at ${fmt.bold(n)} warnings.` : "⚠️ Warnings will never remove members."
+    }
+
+    if (ctx.args.member.toLowerCase() === "expire") {
+      if (!ctx.can("admin")) return ctx.fail("Only admins can change when warnings expire.")
+      const input = ctx.args.reason?.trim().toLowerCase() ?? ""
+      if (input === "off" || input === "never") {
+        await ctx.groupData.update((s) => {
+          delete s.warnExpireMs
+        })
+        void modLog(ctx.rt, ctx.group!, `${ctx.sender.displayName} made warnings never expire`)
+        return "⚠️ Warnings no longer expire."
+      }
+      const ms = parseDuration(input)
+      if (ms === undefined || ms < 3_600_000 || ms > 365 * 86_400_000) return ctx.usageError("Give a duration from 1h to 365d (e.g. 30d), or off.")
+      await ctx.groupData.update((s) => {
+        s.warnExpireMs = ms
+      })
+      void modLog(ctx.rt, ctx.group!, `${ctx.sender.displayName} made warnings expire after ${fmt.duration(ms)}`)
+      return `⚠️ A member's warnings now reset after ${fmt.bold(fmt.duration(ms))} without a new one.`
     }
 
     const member = await ctx.resolveMember(ctx.args.member)

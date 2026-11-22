@@ -32,7 +32,7 @@ export default defineCommand({
     return fmt.lines(
       `📈 ${fmt.bold("Stats")}`,
       `⏱ Uptime ${fmt.duration(Date.now() - rt.startedAt.getTime())} · since ${rt.startedAt.toISOString().slice(0, 16).replace("T", " ")} UTC`,
-      `🧩 ${fmt.num(rt.stats.commandsRun)} commands run · ${fmt.num(rt.stats.commandsFailed)} crashed`,
+      `🧩 ${fmt.num(rt.stats.commandsRun)} commands run · ${fmt.num(rt.stats.commandsFailed)} crashed · since ${new Date(rt.stats.since).toISOString().slice(0, 10)}`,
       `👥 ${contacts.length} contacts · ${groups.length} groups`,
       `🗓 ${fmt.plural(jobs.length, "scheduled job")}${byKind.length ? ` (${byKind.map(([k, n]) => `${n} ${k}`).join(", ")})` : ""}`,
       `💾 ${mb(mem.rss)} RSS · ${mb(mem.heapUsed)} heap`,

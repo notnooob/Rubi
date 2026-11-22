@@ -17,12 +17,16 @@ export interface GroupSettings {
   rules?: string
   /** Welcome message for new members; `{name}` and `{group}` are replaced. */
   welcome?: string
+  /** Goodbye message for members who leave on their own; `{name}` (shown bold) and `{group}` are replaced. */
+  goodbye?: string
   /** Delete links posted by brand-new members. */
   antispam?: boolean
   /** Warnings by groupMemberId. */
   warnings?: Record<string, {name: string; count: number; reasons: string[]; last: number}>
   /** Auto-kick at this many warnings (0 = never). Default 3. */
   warnLimit?: number
+  /** Warnings reset after this long without a new one, in ms (unset = never). */
+  warnExpireMs?: number
   tasks?: TodoTask[]
   events?: GroupEvent[]
   /** Banned words/phrases (lowercase, `*` wildcard): messages containing one are deleted (/filter). */
@@ -102,6 +106,12 @@ export class ChatData {
       },
       (fn) => this.serialize(`c${c.contactId}`, fn)
     )
+  }
+
+  /** Drop the cached settings of a chat Rubi left or lost (the next read uses the chat's own customData). */
+  forget(ref: T.ChatRef): void {
+    if (ref.chatType === "group") this.groupCache.delete(ref.chatId)
+    else if (ref.chatType === "direct") this.contactCache.delete(ref.chatId)
   }
 
   /** One read-modify-write at a time per chat, so concurrent commands don't lose updates. */

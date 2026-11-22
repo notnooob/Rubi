@@ -205,7 +205,7 @@ export function makeHarness(patch: (cfg: RubiConfig) => void = () => undefined):
     limiter: new RateLimiter(),
     log,
     startedAt: new Date(),
-    stats: {commandsRun: 0, commandsFailed: 0, perCommand: new Map()},
+    stats: {since: Date.now(), commandsRun: 0, commandsFailed: 0, perCommand: new Map()},
     http: new Http("rubi-test"),
     data: new ChatData(chat as any),
     store,

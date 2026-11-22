@@ -111,6 +111,9 @@ survive restarts.
   in your `/reminders` and only you can cancel it.
 - **See and cancel:** `/reminders` lists yours in this chat, with a ✖ to cancel each one (`/unremind <id>`). Only the
   person who set a reminder can cancel it.
+- **Snooze:** when a one-off reminder goes off, tap 💤 10m, 💤 1h or 💤 tomorrow under it (where commands are
+  tappable), or reply to it with `/snooze 30m` (any time: `/snooze tomorrow 9:00`). You can snooze it for a day after it
+  goes off, whether you set it or it's for you.
 - **Limits:** at least 10 seconds ahead, at most a year, and 25 reminders per person.
 - If you leave a group, or are removed, the reminders you set there, and the ones others set for you there, are
   cancelled.
@@ -121,6 +124,12 @@ survive restarts.
 options it's a 👍/👎 poll. Vote by reacting with the option's emoji, or tap its vote button where commands are tappable.
 Each person has one vote, and changing your reaction changes it. Only the person who started a poll can close it with
 `/endpoll <id>` (the button is on the poll), which shows the final result.
+
+- **Several picks:** start with `multi`, `/poll multi Which days work? | Mon | Tue | Wed`, and everyone can pick as many
+  options as they like. SimpleX allows 3 reactions per person on a message, so more picks need the vote buttons.
+- **Closing by itself:** start with a duration (1 minute to 30 days), `/poll 2h Pizza tonight? | yes | no`. The poll
+  shows when it closes. Both work together: `/poll multi 1d …`.
+- Polls and games that run out of time show that on their message instead of keeping buttons that no longer work.
 
 **Trivia:** `/trivia` (or `/trivia hard`) asks a question; answer by reacting with the emoji of your answer. The answer
 is revealed after 30 seconds. `/trivia tournament 5 medium` plays several rounds (2–10) and keeps score.
@@ -149,9 +158,10 @@ visible RSVPs. Members answer with the 👍 yes, 😀 maybe or 👎 no reactions
 
 ## Tasks, time zones and personal defaults
 
-- **Tasks:** `/todo add bring projector`, `/todo list`, `/todo claim <id>`, `/todo done <id>`, `/todo remove <id>`.
-  In a DM it's your personal list; in a group it's the group's shared list (up to 100 tasks). The creator or whoever
-  claimed a task can complete it; only the creator can remove it.
+- **Tasks:** `/todo add bring projector`, `/todo list`, `/todo claim <id>`, `/todo done <id>`, `/todo reopen <id>`,
+  `/todo remove <id>`, `/todo clear`. In a DM it's your personal list; in a group it's the group's shared list (up to
+  100 tasks). The creator or whoever has a task can complete or reopen it; only the creator can remove it or, in groups,
+  give it to someone with `/todo assign <id> @member`. `/todo clear` removes your own completed tasks.
 - **Time zone:** `/time Tokyo` shows the time anywhere. In a DM, `/time set London` saves your time zone, which
   `/remind` then uses for clock times and dates. `/time at 2030-01-01T18:00:00Z | UTC | America/New_York` converts an
   exact moment between zones.
@@ -162,7 +172,7 @@ visible RSVPs. Members answer with the 👍 yes, 😀 maybe or 👎 no reactions
 ## Web lookups, Reddit and X
 
 `/weather`, `/wiki`, `/define`, `/currency`, `/crypto`, `/country`, `/holidays`, `/time`, `/github`, `/npm`, `/hn`,
-`/dns`, `/whois`, `/status`, `/deals` and `/xkcd` fetch information from public services (each command's details say which). They
+`/dns`, `/whois`, `/status`, `/deals`, `/translate` and `/xkcd` fetch information from public services (each command's details say which). They
 answer with a live reply.
 
 **Reddit and X posts:** `/reddit <link>` (or `/r`) and `/x <link>` show the post's text and stats and attach its images
@@ -171,6 +181,13 @@ and videos. Shortcuts:
 - **Reply** to a message that contains a link with just `/r` or `/x` to show that post.
 - **Add `-`** to skip the media: `/r <link>-`, `/x <link> -`, or reply with `/r -`. Rubi then only lists the media.
 - Media of NSFW or sensitive posts is only sent in DMs.
+
+**Translate:** `/translate de good morning` (or `/tr`) translates into German; the source language is detected. Name it
+when the guess is wrong: `/translate fr>en bonjour`. Languages are codes (`de`, `pt-BR`) or names (`german`). Up to 500
+characters at a time. The text is sent to MyMemory (translated.net).
+
+**Replies as input:** reply to a message with `/translate de`, `/define`, `/qr`, `/hash sha256`, `/base64 encode` or
+`/cleanlink` to use that message's text, just like `/r` and `/x` with links.
 
 **Other tools:** `/calc (2+3)*4^2`, `/convert 32 F to C` (offline units), `/qr <text>`, `/uuid`, `/hash sha256 <text>`,
 `/base64 encode <text>`, `/timestamp`, `/cleanlink <url>` (removes tracking parameters without opening the link), and

@@ -92,6 +92,10 @@ export class CommandContext<A = Record<string, unknown>> {
     const c = this.item.chatItem.content
     return c.type === "rcvMsgContent" ? c.msgContent.text : ""
   }
+  /** Text of the message this one replies to (quotes), if any — lets commands work on a replied-to message. */
+  get quotedText(): string | undefined {
+    return this.item.chatItem.quotedItem?.content.text?.trim() || undefined
+  }
   get isDirect(): boolean {
     return this.chatInfo.type === "direct"
   }

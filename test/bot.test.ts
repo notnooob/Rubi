@@ -3,6 +3,11 @@ import {describe, it} from "node:test"
 import {T} from "@simplex-chat/types"
 import {defineCommand} from "../src/core/command"
 import {dm, groupMsg, makeHarness, settle} from "./helpers/fake"
+import {HttpError} from "../src/core/http"
+import {createLogger} from "../src/core/logger"
+import {loadStats} from "../src/core/stats"
+import {Store} from "../src/core/store"
+import {capSize} from "../src/util/cap"
 
 describe("registry", () => {
   it("loads data/commands (skipping _template) and builds the app menu", () => {
@@ -272,5 +277,39 @@ describe("missed commands", () => {
     const late = makeHarness((cfg) => (cfg.replies.skipMissedCommands = false))
     await late.receive(sentBeforeStart(dm("/ping")))
     assert.ok(late.chat.sent.length > 0)
+  })
+})
+
+describe("robustness", () => {
+  it("a failed web service doesn't cost the user the cooldown", async () => {
+    const h = makeHarness()
+    const failing = {withSignal: () => failing, json: async () => Promise.reject(new HttpError("The dictionary timed out."))}
+    ;(h.rt as any).http = failing
+    await h.receive(dm("/define word"))
+    assert.match(h.chat.last()!.text!, /timed out/)
+    await h.receive(dm("/define word"))
+    assert.match(h.chat.last()!.text!, /timed out/, "no 'Slow down' after a service failure")
+  })
+
+  it("command stats survive a restart", async () => {
+    const h = makeHarness()
+    await h.receive(dm("/ping"))
+    await h.receive(dm("/whoami"))
+    h.rt.store.flush()
+    const again = loadStats(new Store(h.config.stateFile, createLogger("test")))
+    assert.equal(again.commandsRun, 2)
+    assert.equal(again.perCommand.get("ping"), 1)
+    assert.equal(again.since, h.rt.stats.since)
+  })
+
+  it("capSize drops the oldest entries, not everything", () => {
+    const m = new Map([["a", 1], ["b", 2], ["c", 3]])
+    capSize(m, 2)
+    assert.deepEqual([...m.keys()], ["b", "c"])
+    const s = new Set([1, 2, 3, 4])
+    capSize(s, 4)
+    assert.equal(s.size, 4)
+    capSize(s, 1)
+    assert.deepEqual([...s], [4])
   })
 })

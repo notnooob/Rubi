@@ -18,6 +18,8 @@ export default defineCommand({
       current.state.closed = true
       return renderPoll(current)
     })
+    // a timed poll's closing job has nothing left to do
+    ctx.rt.scheduler.cancelWhere((j) => j.kind === "poll-close" && (j.payload as {id?: string}).id === id)
     await ctx.react("✅")
   },
 })

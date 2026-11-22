@@ -1,25 +1,50 @@
-import {assertCanModerate, defineCommand, defineJob, describeError, fmt, moderate, parseDuration, T, modLog} from "../../../src/sdk"
+import {assertCanModerate, chatErrorType, defineCommand, defineJob, describeError, fmt, moderate, parseDuration, T, modLog, type Runtime} from "../../../src/sdk"
 
 export interface UnblockPayload {
   ref: T.ChatRef
   groupId: number
   groupMemberId: number
   name: string
+  /** Failed attempts so far (the job retries every 10 minutes, then gives up and tells the admins). */
+  tries?: number
 }
 
 const MIN_MS = 60_000
 const MAX_MS = 30 * 86_400_000
+export const UNBLOCK_TRIES = 6
+const RETRY_MS = 10 * 60_000
 
 defineJob<UnblockPayload>("unblock", async ({payload: p}, rt) => {
   try {
     await rt.chat.apiBlockMembersForAll(p.groupId, [p.groupMemberId], false)
   } catch (e) {
-    // the member left or Rubi lost its role: nothing to retry
-    rt.log.warn(`timed unblock of ${p.name} in group #${p.groupId} failed: ${describeError(e)}`)
+    if (await memberGone(rt, p, e)) {
+      rt.log.info(`timed unblock of ${p.name} in group #${p.groupId} skipped: they're no longer in the group`)
+      return
+    }
+    p.tries = (p.tries ?? 0) + 1
+    rt.log.warn(`timed unblock of ${p.name} in group #${p.groupId} failed (${p.tries}/${UNBLOCK_TRIES}): ${describeError(e)}`)
+    // returning a time reschedules the job with this same payload, so `tries` is kept
+    if (p.tries < UNBLOCK_TRIES) return Date.now() + RETRY_MS
+    const g = (await rt.chat.apiListGroups(rt.user.userId).catch(() => [])).find((x) => x.groupId === p.groupId)
+    if (g) void modLog(rt, g, `couldn't lift the timed block of ${p.name} (${describeError(e)}) — use /unblock`)
+    await rt.messenger.send(p.ref, `⚠️ I couldn't end ${fmt.bold(p.name)}'s block; an admin can use /unblock.`).catch(() => undefined)
     return
   }
   await rt.messenger.send(p.ref, `🔓 ${fmt.bold(p.name)}'s block ended.`)
 })
+
+/** The member left or was removed: nothing to unblock. */
+async function memberGone(rt: Runtime, p: UnblockPayload, e: unknown): Promise<boolean> {
+  if (/memberNot(Found|Active)/i.test(chatErrorType(e) ?? "")) return true
+  try {
+    const members = await rt.chat.apiListMembers(p.groupId)
+    const m = members.find((x) => x.groupMemberId === p.groupMemberId)
+    return !m || /removed|left|deleted|rejected/.test(m.memberStatus)
+  } catch {
+    return false
+  }
+}
 
 export default defineCommand({
   name: "block",

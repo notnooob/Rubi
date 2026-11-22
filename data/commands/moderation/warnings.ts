@@ -1,4 +1,4 @@
-import {defineCommand, fmt} from "../../../src/sdk"
+import {defineCommand, fmt, isWarningExpired, pruneWarnings} from "../../../src/sdk"
 
 export default defineCommand({
   name: "warnings",
@@ -8,7 +8,9 @@ export default defineCommand({
   scope: "group",
   args: [{name: "member", type: "member", description: "Whose warnings (moderators can see anyone's)"}],
   async run(ctx) {
-    const s = await ctx.groupData.get()
+    let s = await ctx.groupData.get()
+    // expired warnings (/warn expire) are dropped here, so they never show
+    if (Object.values(s.warnings ?? {}).some((w) => isWarningExpired(w, s))) s = await ctx.groupData.update((d) => void pruneWarnings(d))
     const all = s.warnings ?? {}
     const limit = s.warnLimit ?? 3
     const mod = ctx.can("moderator")
@@ -31,7 +33,7 @@ export default defineCommand({
     return fmt.lines(
       `⚠️ ${fmt.bold(target.memberProfile.displayName)} — ${w.count}${limit ? `/${limit}` : ""} warning${w.count === 1 ? "" : "s"}`,
       ...w.reasons.map((r, i) => `${i + 1}. ${fmt.italic(r)}`),
-      fmt.italic(`last ${fmt.relative(w.last)}`)
+      fmt.italic(`last ${fmt.relative(w.last)}${s.warnExpireMs ? ` · they expire after ${fmt.duration(s.warnExpireMs)} without a new one` : ""}`)
     )
   },
 })

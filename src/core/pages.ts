@@ -27,6 +27,11 @@ export interface PageSet {
 export class Pages {
   private sets = new Map<string, PageSet>()
 
+  constructor() {
+    // also sweep while nobody paginates, so old lists don't stay in memory
+    setInterval(() => this.sweep(), 10 * 60_000).unref()
+  }
+
   create(ref: T.ChatRef, opts: {title: string; items: string[]; perPage?: number; footer?: string; ui: Ui}): PageSet {
     this.sweep()
     const set: PageSet = {

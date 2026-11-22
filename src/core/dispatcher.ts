@@ -1,4 +1,5 @@
 import type {CEvt, T} from "@simplex-chat/types"
+import {capSize} from "../util/cap"
 import {chatKey, chatName, chatRefOf, itemText} from "../util/chat"
 import * as fmt from "../util/format"
 import {uiFor} from "../util/ui"
@@ -15,9 +16,11 @@ import {
   describeError,
   errorRef,
 } from "./errors"
+import {HttpError} from "./http"
 import type {Logger} from "./logger"
 import {PERMISSION_LABEL, permissionRole} from "./permissions"
 import type {Runtime} from "./runtime"
+import {recordStats} from "./stats"
 
 export interface ParsedCommand {
   keyword: string
@@ -101,8 +104,8 @@ export class Dispatcher {
     if (!this.accepting || !isIncomingMessage(ci)) return
     if (ci.chatItem.meta.itemLive) {
       // live messages deleted before they're finished never come back, so don't let the set grow forever
-      if (this.typing.size > 10_000) this.typing.clear()
       this.typing.add(itemKey(ci))
+      capSize(this.typing, 10_000)
       return
     }
     const dir = ci.chatItem.chatDir
@@ -180,6 +183,7 @@ export class Dispatcher {
       })
       this.rt.stats.commandsRun++
       this.rt.stats.perCommand.set(cmd.name, (this.rt.stats.perCommand.get(cmd.name) ?? 0) + 1)
+      recordStats(this.rt)
       this.log.info(`${ctx.who} ran /${cmd.name}${keyword !== cmd.name ? ` (as /${keyword})` : ""} — ${Date.now() - ctx.startedAt}ms`)
     } catch (e) {
       await this.handleError(ctx, e)
@@ -274,10 +278,13 @@ export class Dispatcher {
       if (e instanceof UsageError) {
         text += `\n\n*Usage:* ${fmt.code(ctx.usage())}\n*Details:* ${ctx.ui.cmd("help", cmd.name)}`
         this.rt.limiter.reset(ctx.sender.key, cmd.name) // don't make users wait after a typo
+      } else if (e instanceof HttpError) {
+        this.rt.limiter.reset(ctx.sender.key, cmd.name) // nor after a service failed them (the flood limit still applies)
       }
       this.log.debug(`${ctx.who} /${cmd.name}: ${e.name}: ${e.message}`)
     } else {
       this.rt.stats.commandsFailed++
+      recordStats(this.rt)
       const ref = errorRef()
       this.log.error(`[${ref}] /${cmd.name} crashed for ${ctx.who}: ${describeError(e)}`, e)
       text = `💥 Something went wrong while running ${prefix}${cmd.name}. Please try again later.\n${fmt.italic(`Error ref: ${ref}`)}`

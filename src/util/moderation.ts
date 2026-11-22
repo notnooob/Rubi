@@ -2,6 +2,7 @@ import {T} from "@simplex-chat/types"
 import type {CommandContext} from "../core/context"
 import {chatErrorType, CommandError, PermissionError} from "../core/errors"
 import {roleRank} from "../core/permissions"
+import type {GroupSettings} from "../core/data"
 import type {Runtime} from "../core/runtime"
 
 /**
@@ -45,6 +46,25 @@ export async function moderate<R>(fn: () => Promise<R>): Promise<R> {
   }
 }
 
+type Warning = NonNullable<GroupSettings["warnings"]>[string]
+
+/** Warnings reset once a member has gone `warnExpireMs` without a new one (/warn expire). */
+export function isWarningExpired(w: Pick<Warning, "last">, settings: Pick<GroupSettings, "warnExpireMs">, now = Date.now()): boolean {
+  return !!settings.warnExpireMs && w.last < now - settings.warnExpireMs
+}
+
+/** Drop expired warnings from a settings draft (call inside `update`). Returns how many were removed. */
+export function pruneWarnings(s: GroupSettings, now = Date.now()): number {
+  let n = 0
+  for (const [id, w] of Object.entries(s.warnings ?? {})) {
+    if (isWarningExpired(w, s, now)) {
+      delete s.warnings![id]
+      n++
+    }
+  }
+  return n
+}
+
 /**
  * Add a warning to a member (shared by /warn and the /filter "warn" action). At the group's limit (default 3,
  * 0 = never) the member is removed if Rubi is an admin. Returns the new count, the limit and what happened.
@@ -56,6 +76,7 @@ export async function addWarning(
   reason: string
 ): Promise<{count: number; limit: number; removed: boolean; needsAdmin: boolean}> {
   const settings = await rt.data.group(g).update((s) => {
+    pruneWarnings(s)
     const w = (s.warnings ??= {})
     const cur = w[member.groupMemberId] ?? {name: member.memberProfile.displayName, count: 0, reasons: [], last: 0}
     cur.count++

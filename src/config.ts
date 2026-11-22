@@ -149,6 +149,8 @@ export interface RubiConfig {
     /** Route all outgoing HTTP through this proxy: http://host:port or socks5://127.0.0.1:9050 (Tor). */
     proxy?: string
     userAgent: string
+    /** Contact email sent to MyMemory by /translate (raises its anonymous daily quota). Unset = anonymous. */
+    translateEmail?: string
   }
     /** Files Rubi downloads to send as attachments (e.g. /reddit media). */
   media: {
@@ -210,6 +212,7 @@ export function loadConfig(): RubiConfig {
     http: {
       proxy: env("RUBI_HTTP_PROXY"),
       userAgent: str("RUBI_HTTP_USER_AGENT", "RubiBot/1.0 (SimpleX chat bot)"),
+      translateEmail: env("RUBI_TRANSLATE_EMAIL"),
     },
     media: {
       dir: path.resolve(str("RUBI_MEDIA_DIR", "./storage/media")),

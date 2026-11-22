@@ -16,7 +16,7 @@ export default defineCommand({
       `💎 ${fmt.bold(ctx.config.profile.displayName)} — the first multi-purpose SimpleX Chat bot`,
       "",
       `⏱ ${fmt.bold("Uptime:")} ${fmt.duration(Date.now() - rt.startedAt.getTime())}`,
-      `🧩 ${fmt.bold("Commands:")} ${visible} · ${fmt.num(rt.stats.commandsRun)} run since start`,
+      `🧩 ${fmt.bold("Commands:")} ${visible} · ${fmt.num(rt.stats.commandsRun)} run since ${new Date(rt.stats.since).toISOString().slice(0, 10)}`,
       `👥 ${fmt.bold("Chats:")} ${fmt.plural(contacts.length, "contact")} · ${fmt.plural(groups.length, "group")}`,
       `📦 ${fmt.bold("Versions:")} Rubi ${rt.versions.rubi} · simplex-chat ${rt.versions.simplex} · Node ${rt.versions.node}`,
       "",

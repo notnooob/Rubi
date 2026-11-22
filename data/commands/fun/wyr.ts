@@ -101,6 +101,10 @@ defineInteraction<WyrState>("wyr", {
     ix.state.closed = true
     return {text: render(ix), done: true, reply: "✅ Would You Rather closed."}
   },
+  onExpire(ix) {
+    ix.state.closed = true
+    return render(ix)
+  },
 })
 
 export default defineCommand({

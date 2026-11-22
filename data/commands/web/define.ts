@@ -11,12 +11,14 @@ export default defineCommand({
   aliases: ["dict", "dictionary"],
   description: "Dictionary definition: /define serendipity",
   category: "Web",
-  args: [{name: "word", type: "text", description: "English word", required: true}],
+  details: "Reply to a message with /define to look up its first word.",
+  args: [{name: "word", type: "text", description: "English word (or reply to a message)"}],
   examples: ["define serendipity"],
   live: "📖 Looking it up",
   cooldown: 5,
   async run(ctx) {
-    const word = ctx.args.word.trim().toLowerCase()
+    const word = (ctx.args.word?.trim() || ctx.quotedText?.match(/\p{L}[\p{L}'-]*/u)?.[0] || "").toLowerCase()
+    if (!word) return ctx.usageError("Give a word, or reply to a message with /define.")
     let entries: Entry[]
     try {
       entries = await ctx.http.json<Entry[]>(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`, {service: "The dictionary"})

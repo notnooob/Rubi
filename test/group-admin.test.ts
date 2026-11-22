@@ -6,6 +6,7 @@ import {automod} from "../data/events/automod"
 import {antispam} from "../data/events/antispam"
 import {findBlocked} from "../src/util/wordfilter"
 import {parseWhen} from "../src/util/time"
+import memberEvents from "../data/events/members"
 
 const ADMIN = {role: "admin" as T.GroupMemberRole, memberId: 9, name: "boss"}
 const deletes = (h: ReturnType<typeof makeHarness>) => h.chat.calls.filter((c) => c[0] === "apiDeleteMemberChatItem")
@@ -191,5 +192,152 @@ describe("reminders on dates", () => {
     await h.receive(dm("/remind dec 24 18:00 wrap presents"))
     assert.match(h.chat.last()!.text!, /I'll remind you/)
     assert.equal(h.rt.scheduler.list<{text: string}>()[0]!.payload.text, "wrap presents")
+  })
+})
+
+/** Make every scheduled job due and run them once. */
+async function runDue(h: ReturnType<typeof makeHarness>): Promise<void> {
+  for (const job of h.rt.scheduler.list()) job.at = Date.now() - 1
+  h.rt.scheduler.start(h.rt)
+  await sleep(20)
+  await h.rt.scheduler.drain(500)
+  h.rt.scheduler.stop()
+}
+
+const GROUP_INFO = () => (groupMsg("x").chatInfo as any).groupInfo as T.GroupInfo
+const UNBLOCK = {ref: {chatType: "group", chatId: 5}, groupId: 5, groupMemberId: 3, name: "cy"}
+
+describe("timed unblock", () => {
+  it("retries every 10 minutes, then tells the group (and the moderation log)", async () => {
+    const h = makeHarness()
+    h.chat.members = [member(3, "cy")]
+    h.chat.groups = [GROUP_INFO()]
+    let tries = 0
+    h.chat.apiBlockMembersForAll = async () => {
+      tries++
+      throw Object.assign(new Error("Chat command error"), {chatError: {type: "error", errorType: {type: "groupUserRole"}}})
+    }
+    h.rt.scheduler.schedule("unblock", Date.now() - 1, UNBLOCK)
+    for (let i = 1; i < 6; i++) {
+      await runDue(h)
+      const job = h.rt.scheduler.list<{tries?: number}>()[0]!
+      assert.equal(job.payload.tries, i)
+      assert.ok(job.at > Date.now() + 9 * 60_000, "next try in 10 minutes")
+    }
+    assert.equal(h.chat.texts().length, 0, "quiet while retrying")
+    await runDue(h)
+    assert.equal(tries, 6)
+    assert.equal(h.rt.scheduler.list().length, 0)
+    assert.match(h.chat.last()!.text!, /couldn't end \*cy\*'s block; an admin can use \/unblock/)
+  })
+
+  it("gives up quietly when the member has left", async () => {
+    const h = makeHarness()
+    h.chat.members = [{...member(3, "cy"), memberStatus: "left"} as T.GroupMember]
+    h.chat.apiBlockMembersForAll = async () => {
+      throw new Error("nope")
+    }
+    h.rt.scheduler.schedule("unblock", Date.now() - 1, UNBLOCK)
+    await runDue(h)
+    assert.equal(h.rt.scheduler.list().length, 0)
+    assert.equal(h.chat.texts().length, 0)
+  })
+})
+
+describe("/report", () => {
+  const spam = {itemId: 77, chatDir: {type: "groupRcv", groupMember: member(4, "spammer")} as unknown as T.CIDirection, text: "buy cheap stuff"}
+  const subscribe = (h: ReturnType<typeof makeHarness>) => {
+    h.chat.members = [{...member(9, "boss", "admin"), memberContactId: 42} as T.GroupMember, member(3, "cy"), member(4, "spammer")]
+    return h.rt.data.group(GROUP_INFO()).update((s) => {
+      s.modlog = {"9": {contactId: 42, name: "boss"}}
+    })
+  }
+
+  it("needs a reply to someone else's message and admins who get reports", async () => {
+    const h = makeHarness()
+    await h.receive(groupMsg("/report", {memberId: 3, name: "cy"}))
+    assert.match(h.chat.last()!.text!, /Reply to the message you want to report/)
+    await h.receive(groupMsg("/report", {memberId: 3, name: "cy", quote: {itemId: 70, chatDir: {type: "groupSnd"} as T.CIDirection}}))
+    assert.match(h.chat.last()!.text!, /my own message/)
+    await h.receive(groupMsg("/report spam", {memberId: 3, name: "cy", quote: spam}))
+    assert.match(h.chat.last()!.text!, /No admins receive reports here yet/)
+    await h.receive(groupMsg("/report", {memberId: 4, name: "spammer", quote: spam}))
+    assert.match(h.chat.last()!.text!, /your own message/)
+  })
+
+  it("DMs the admins, removes the /report message and confirms privately", async () => {
+    const h = makeHarness()
+    await subscribe(h)
+    const report = groupMsg("/report spam", {memberId: 3, name: "cy", contactId: 50, quote: spam})
+    await h.receive(report)
+    await sleep(30)
+    assert.match(h.chat.sent.find((s) => s.ref === "@42")!.text!, /cy reported a message from spammer \(spam\): buy cheap stuff/)
+    assert.deepEqual(deletes(h).at(-1), ["apiDeleteMemberChatItem", 5, [report.chatItem.meta.itemId]])
+    assert.match(h.chat.sent.find((s) => s.ref === "@50")!.text!, /Your report in \*Club\* was sent to the admins/)
+    assert.ok(!h.chat.sent.some((s) => s.ref === "#5"), "nothing in the group")
+  })
+
+  it("replies in the group when I can't delete messages", async () => {
+    const h = makeHarness()
+    await subscribe(h)
+    await h.receive(groupMsg("/report", {memberId: 3, name: "cy", quote: spam, botRole: "member" as T.GroupMemberRole}))
+    assert.equal(h.chat.sent.find((s) => s.ref === "#5")?.text, "✅ Reported to the admins.")
+    await h.receive(groupMsg("/report", {memberId: 3, name: "cy", quote: spam, botRole: "member" as T.GroupMemberRole}))
+    assert.match(h.chat.sent.filter((s) => s.ref === "#5").at(-1)!.text!, /another in a minute/)
+  })
+})
+
+describe("goodbye messages", () => {
+  type Handler = {event: string; name?: string; run: (evt: unknown, rt: unknown) => unknown}
+  const handlers = memberEvents as unknown as Handler[]
+  const left = handlers.find((e) => e.name === "goodbye")!
+  const leave = (h: ReturnType<typeof makeHarness>, id: number, name: string) =>
+    left.run({type: "leftMember", user: h.rt.user, groupInfo: GROUP_INFO(), member: member(id, name)}, h.rt)
+
+  it("/welcome goodbye sets it; it's sent when someone leaves, at most every 10 seconds", async () => {
+    const h = makeHarness()
+    await leave(h, 3, "cy")
+    assert.equal(h.chat.texts().length, 0, "no goodbye message set")
+    await h.receive(groupMsg("/welcome goodbye Bye {name}, from {group}!", ADMIN))
+    assert.match(h.chat.last()!.text!, /Goodbye message saved/)
+    await leave(h, 3, "cy")
+    assert.equal(h.chat.last()!.text, "Bye *cy*, from Club!")
+    const count = h.chat.texts().length
+    await leave(h, 4, "dee")
+    assert.equal(h.chat.texts().length, count, "throttled")
+    await h.receive(groupMsg("/welcome goodbye off", ADMIN))
+    assert.equal((await settings(h)).goodbye, undefined)
+  })
+
+  it("isn't sent for removed members", () => {
+    assert.ok(!handlers.some((e) => e.event === "deletedMember"))
+  })
+})
+
+describe("warning expiry", () => {
+  it("/warn expire resets old warnings and hides them in /warnings", async () => {
+    const h = makeHarness()
+    await h.receive(groupMsg("/warn expire 5m", ADMIN))
+    assert.match(h.chat.last()!.text!, /Usage|1h to 365d/)
+    await h.receive(groupMsg("/warn expire 30d", {memberId: 2, role: "moderator" as T.GroupMemberRole}))
+    assert.match(h.chat.last()!.text!, /Only admins/)
+    await h.receive(groupMsg("/warn expire 30d", ADMIN))
+    assert.match(h.chat.last()!.text!, /reset after \*30d\*/)
+    h.chat.members = [member(3, "Jo")]
+    await h.receive(groupMsg("/warn @Jo one", ADMIN))
+    await h.receive(groupMsg("/warn @Jo two", ADMIN))
+    assert.equal((await settings(h)).warnings?.["3"]?.count, 2)
+
+    // 31 days later
+    await h.rt.data.group(GROUP_INFO()).update((s) => {
+      s.warnings!["3"]!.last = Date.now() - 31 * 86_400_000
+    })
+    await h.receive(groupMsg("/warnings", ADMIN))
+    assert.match(h.chat.last()!.text!, /Nobody has warnings/)
+    await h.receive(groupMsg("/warn @Jo three", ADMIN))
+    assert.match(h.chat.last()!.text!, /\(1\/3\)/, "counting starts over")
+
+    await h.receive(groupMsg("/warn expire off", ADMIN))
+    assert.equal((await settings(h)).warnExpireMs, undefined)
   })
 })

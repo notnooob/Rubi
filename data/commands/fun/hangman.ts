@@ -20,7 +20,7 @@ interface HangmanState {
   ownerName: string
   prefix: string
   tappable: boolean
-  result?: "won" | "lost" | "stopped"
+  result?: "won" | "lost" | "stopped" | "expired"
 }
 
 function gallows(n: number): string {
@@ -46,6 +46,8 @@ function render(ix: Interaction<HangmanState>): string {
         ? "💀 Out of guesses."
         : s.result === "stopped"
           ? fmt.italic("Stopped.")
+          : s.result === "expired"
+            ? `⌛ Expired, the word was ${fmt.bold(s.word.toUpperCase())}.`
           : // the command stays outside the italics: SimpleX doesn't parse commands inside formatting
             `${fmt.italic(`${MAX_WRONG - s.wrong} wrong guesses left · anyone can guess:`)} ${ui.cmd("hangman", "e")} ${fmt.italic(`or the whole word · by ${s.ownerName}`)}`,
     !s.result ? ui.button("✖ Stop", "cancel", ix.id, {important: true}) : ui.button("🔁 New game", "hangman")
@@ -56,6 +58,10 @@ defineInteraction<HangmanState>("hangman", {
   onCancel(ix) {
     ix.state.result = "stopped"
     return {text: render(ix), done: true, reply: "✅ Hangman stopped."}
+  },
+  onExpire(ix) {
+    ix.state.result = "expired"
+    return render(ix)
   },
 })
 

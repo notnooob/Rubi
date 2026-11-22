@@ -40,9 +40,9 @@ moderate members below them.
 
 | You need to be | Commands |
 |---|---|
-| Anyone | everyday commands, `/rules`, `/members`, `/groupinfo`, `/event`, `/seen`, `/afk`, `/warnings` (your own) |
+| Anyone | everyday commands, `/rules`, `/members`, `/groupinfo`, `/event`, `/seen`, `/afk`, `/warnings` (your own), `/report` |
 | Moderator | `/delete`, `/purge`, `/block`, `/unblock`, `/warn`, `/unwarn`, `/warnings @member` |
-| Admin | `/kick`, `/role`, `/link`, `/welcome`, `/rules set`, `/warn limit`, `/antispam`, `/filter`, `/slowmode`, `/toggle`, `/modlog`, `/feed add/remove` |
+| Admin | `/kick`, `/role`, `/link`, `/welcome`, `/rules set`, `/warn limit`, `/warn expire`, `/antispam`, `/filter`, `/slowmode`, `/toggle`, `/modlog`, `/feed add/remove` |
 | Owner | `/groupmenu` |
 
 | Rubi needs to be | For |
@@ -62,6 +62,10 @@ members whose role isn't above its own. You can't give a role higher than your o
 - **Welcome message:** `/welcome set Welcome {name}! Please read /rules 🙂`. `{name}` becomes an @mention of the new
   member and `{group}` the group name. `/welcome test` previews it, `/welcome off` turns it off. New members are greeted
   once Rubi is connected to them. Members who were already there when Rubi joined aren't greeted.
+- **Goodbye message:** `/welcome goodbye Bye {name}, thanks for stopping by!` is posted when a member leaves on their
+  own (not when they're removed). `{name}` is shown in bold, since they're gone, and `{group}` is the group name. At
+  most one goodbye every 10 seconds, so a wave of leavers doesn't flood the chat. `/welcome goodbye` shows it,
+  `/welcome goodbye off` turns it off.
 - **Invite link:** `/link` shows the group's invite link (creating one if needed), `/link new` replaces it, and
   `/link delete` removes it. Rubi must be an admin.
 - **Members:** `/members` lists members and their roles, with the `#id`s you can use in commands. `/groupinfo` shows
@@ -88,12 +92,14 @@ follow up to 10 feeds. When a feed can't be fetched, Rubi keeps trying and `/fee
 |---|---|---|
 | Delete one message | reply to it with `/delete` | Your `/delete` message is removed too. Works on Rubi's own messages as well. |
 | Delete recent messages | `/purge 10`, `/purge 20 @spammer` | Up to 50, after you confirm. Skips messages from members whose role is equal to or higher than yours or Rubi's. |
-| Hide someone's messages | `/block @troll`, `/block @troll 2h` | Blocked members stay in the group, but nobody sees their new messages. With a duration (1 minute to 30 days) Rubi unblocks them automatically and says so. |
+| Hide someone's messages | `/block @troll`, `/block @troll 2h` | Blocked members stay in the group, but nobody sees their new messages. With a duration (1 minute to 30 days) Rubi unblocks them automatically and says so. If it can't (for example it lost its role), it retries every 10 minutes for an hour, then says so in the group and in the moderation log. |
 | Undo a block | `/unblock @troll` | Also cancels a pending timed unblock. |
 | Remove a member | `/kick @spammer advertising` | Asks for confirmation. Their earlier messages stay; `/purge 50 @member` removes recent ones first. |
 | Change a role | `/role @alice moderator` | observer, author, member, moderator, admin or owner. Making someone an owner asks first. |
 | Warn | `/warn @bob please keep it civil` | Counts per member. At the limit Rubi removes the member (if it's an admin). |
 | Warning limit | `/warn limit 5` | Default 3; `0` never removes. Admins only. |
+| Warning expiry | `/warn expire 30d`, `/warn expire off` | A member's warnings reset after that long (1 hour to 365 days) without a new one. Default: they never expire. Admins only. |
+| Reports from members | reply to a message with `/report <reason>` | Anyone can report; admins with the [moderation log](#the-moderation-log) get the message and reason by DM. If Rubi is a moderator, it deletes the `/report` message and confirms to the reporter by DM. One report per minute per member. |
 | See warnings | `/warnings`, `/warnings @bob` | Members see their own; moderators see anyone's. |
 | Clear warnings | `/unwarn @bob` | |
 
@@ -226,6 +232,7 @@ All of these are stored per group in Rubi's SimpleX database, and `/groupinfo` s
 |---|---|---|
 | Rules | `/rules set …`, `/rules clear` | none |
 | Welcome message | `/welcome set …`, `/welcome off` | off |
+| Goodbye message | `/welcome goodbye …`, `/welcome goodbye off` | off |
 | Command menu (tappable commands) | `/groupmenu`, `/groupmenu off` (owners; stored in the group profile) | off |
 | Anti-spam | `/antispam on/off` | off |
 | Banned words | `/filter add/remove/clear` | none |
@@ -233,6 +240,7 @@ All of these are stored per group in Rubi's SimpleX database, and `/groupinfo` s
 | Filter level | `/filter level normal/strict/max` | normal |
 | Slow mode | `/slowmode <interval>`, `/slowmode off` | off |
 | Warning limit | `/warn limit <0–50>` | 3 |
+| Warning expiry | `/warn expire <1h–365d>`, `/warn expire off` | never |
 | Turned-off commands | `/toggle on/off …` | none |
 | Feeds | `/feed add/remove` | none |
 | Moderation log recipients | `/modlog on/off` (each admin for themselves) | none |

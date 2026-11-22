@@ -15,6 +15,8 @@ import type {Scheduler} from "./scheduler"
 import type {Store} from "./store"
 
 export interface Stats {
+  /** When counting began (stats survive restarts; see src/core/stats.ts). */
+  since: number
   commandsRun: number
   commandsFailed: number
   perCommand: Map<string, number>

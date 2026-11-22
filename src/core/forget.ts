@@ -5,7 +5,7 @@ import type {Runtime} from "./runtime"
 /**
  * Drop state for a chat Rubi can no longer talk to (left/removed from a group, contact deleted):
  * its interactions (polls, trivia…) and scheduled jobs. With `memberId`, only that member's reminders in the group
- * (they left or were removed). Returns how many jobs + interactions were removed.
+ * (they left or were removed) and snoozable reminders. Returns how many jobs + interactions were removed.
  */
 export function forgetChat(rt: Runtime, ref: T.ChatRef, memberId?: number): number {
   // any scope of the chat (member support chats included)
@@ -20,6 +20,15 @@ export function forgetChat(rt: Runtime, ref: T.ChatRef, memberId?: number): numb
 
   // /word boards and scores (data/commands/fun/word.ts), keyed by chatKey
   if (memberId === undefined) for (const name of ["word", "wordscores"]) rt.store.collection(name).delete(chatKey(ref))
+
+  // reminders that can still be snoozed (data/commands/utility/snooze.ts)
+  const snooze = rt.store.collection<{ref?: unknown; memberId?: number; byMemberId?: number}>("snooze")
+  for (const [k, r] of snooze.entries()) {
+    if (sameChat(r.ref) && (memberId === undefined || r.memberId === memberId || r.byMemberId === memberId)) snooze.delete(k)
+  }
+
+  // cached chat settings
+  if (memberId === undefined) rt.data.forget(ref)
 
   if (memberId !== undefined) {
     return rt.scheduler.cancelWhere((j) => {

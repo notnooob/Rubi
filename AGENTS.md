@@ -31,15 +31,15 @@ It's going to be open-sourced, so keep code, comments and docs clean enough for 
 Commands (one file each in `data/commands/<category>/`; the folder is the category):
 - **General:** `/help` `/whoami` `/ping` `/about` `/invite`
 - **Utility:** `/remind` `/reminders` `/poll` `/calc` `/convert` `/prefs` `/todo` `/cleanlink` `/roll` `/choose` `/time` `/qr` `/uuid` `/password` `/hash`
-  `/base64` `/timestamp` (+ hidden helpers `/unremind`, `/endpoll`)
-- **Web:** `/reddit` (alias `/r`) `/x` (aliases `/twitter`, `/tweet`) `/deals` `/weather` `/wiki` `/define` `/currency` `/crypto` `/status` `/dns` `/whois` `/github` `/npm` `/country` `/holidays` `/hn`
+  `/base64` `/timestamp` (+ hidden helpers `/unremind`, `/endpoll`, `/snooze`)
+- **Web:** `/reddit` (alias `/r`) `/x` (aliases `/twitter`, `/tweet`) `/deals` `/translate` (alias `/tr`) `/weather` `/wiki` `/define` `/currency` `/crypto` `/status` `/dns` `/whois` `/github` `/npm` `/country` `/holidays` `/hn`
 - **Fun:** `/8ball` `/coinflip` `/rps` `/trivia` (including `tournament`) `/wyr` `/hangman` `/ttt` `/word` `/joke` `/fact` `/quote` `/xkcd`
 - **Groups:** `/groupinfo` `/members` `/rules` `/welcome` `/event` `/feed` `/link` `/antispam` `/filter` `/slowmode` `/toggle` `/seen` `/afk` `/groupmenu`
-- **Moderation:** `/kick` `/role` `/block` (optional duration) `/unblock` `/warn` `/warnings` `/unwarn` `/delete` `/purge` `/modlog`
+- **Moderation:** `/kick` `/role` `/block` (optional duration) `/unblock` `/warn` (incl. `limit`, `expire`) `/warnings` `/unwarn` `/report` `/delete` `/purge` `/modlog`
 - **Admin** (bot admins): `/reload` `/stats` `/groups` `/leave` `/broadcast` `/join`
 - **System** (hidden; buttons send these): `/vote` `/page` `/confirm` `/cancel`
 
-Events (`data/events/`): auto-join + greeting, then a `/groupmenu` tip in groups without the menu (`groups.ts`), custom welcome for new members (`members.ts`), anti-spam (`antispam.ts`),
+Events (`data/events/`): auto-join + greeting, then a `/groupmenu` tip in groups without the menu (`groups.ts`), custom welcome for new members and goodbye for members who leave (`members.ts`), anti-spam (`antispam.ts`),
 banned words + slow mode (`automod.ts`; it and anti-spam also check `chatItemUpdated`, i.e. edits and finished live messages), last-seen and AFK replies (`activity.ts`), and cleanup of jobs/interactions for chats Rubi left and reminders of members who left (`cleanup.ts`).
 
 ## Tappable commands, buttons and groups (read before writing replies)
@@ -123,7 +123,7 @@ data/
     custom/            ← YOUR OWN commands, gitignored (only its README.md is tracked); category "Custom"
   events/              ← chat event handlers (auto-loaded, recursive)
     groups.ts          ← auto-join group invitations, greet on join + /groupmenu tip (groupMenuTip)
-    members.ts         ← custom /welcome for new members
+    members.ts         ← custom /welcome for new members + /welcome goodbye on leftMember (throttled per group)
     antispam.ts        ← /antispam: delete links from brand-new members (new and edited messages); antispam() exported for tests
     automod.ts         ← /filter banned words (levels, delete/warn/block action) + /slowmode, on new and edited messages; automod() exported for tests
     activity.ts        ← /seen last-post times, /afk mention replies + welcome back; trackActivity() exported for tests
@@ -148,12 +148,13 @@ src/
     errors.ts          ← CommandError family + describeError for library errors
     logger.ts          ← tiny leveled logger
     runtime.ts         ← Runtime interface (what ctx.rt / event handlers get)
+    stats.ts           ← loadStats/recordStats: command counters persisted in the store (survive restarts; Stats.since)
     http.ts            ← Http: fetch with timeouts, size caps, friendly errors, proxy/Tor, SSRF guard
     data.ts            ← ChatData: per-group/contact settings in SimpleX customData (GroupSettings type)
     store.ts           ← Store: JSON key-value file (storage/rubi-state.json)
     scheduler.ts       ← Scheduler + defineJob: persistent jobs (reminders, trivia reveal); handlers may return a next due time
-    forget.ts          ← forgetChat: drop a chat's jobs + interactions + /word data (or one member's reminders)
-    interactions.ts    ← Interactions + defineInteraction: reaction/button messages; REACTIONS
+    forget.ts          ← forgetChat: drop a chat's jobs + interactions + /word data + snoozable reminders + cached settings (or one member's reminders)
+    interactions.ts    ← Interactions + defineInteraction: reaction/button messages; REACTIONS; onExpire + sweepExpired
     prompts.ts         ← Prompts: ctx.awaitReply / ctx.confirm waiting for a user's next message
     pages.ts           ← Pages: paginated lists with ◀ ▶ buttons
     lock.ts            ← one-instance-per-database lock
@@ -170,6 +171,7 @@ src/
     format.ts          ← SimpleX markdown helpers (bold, code, bar, mention, duration…)
     ui.ts              ← chat-aware commands/buttons: ctx.ui, makeUi, commandsTappable (see "Tappable commands")
     chat.ts            ← chatRefOf, chatName, itemText … (no native import)
+    cap.ts             ← capSize(map|set, max): evict the oldest entries of an in-memory cache
     time.ts            ← parseDuration, parseWhen ("10m", "18:30", "tomorrow 9am"), parseRepeat/nextRepeat ("every day 9:00"), formatDateTime
     calc.ts            ← safe expression evaluator (no eval)
     units.ts           ← offline /convert units, aliases and affine temperature conversions
@@ -177,7 +179,8 @@ src/
     wordfilter.ts      ← /filter: parseWordList, findBlocked (levels normal/strict/max, phrases, * wildcard), matchesPattern
     modlog.ts          ← modLog(rt, g, text): moderation log DMs to subscribed admins; adminContact for private replies
     qr.ts              ← QR code → inline image data URI
-    moderation.ts      ← assertCanModerate + moderate() (role checks, friendly chat-core errors) + addWarning (/warn, filter action)
+    moderation.ts      ← assertCanModerate + moderate() (role checks, friendly chat-core errors) + addWarning (/warn, filter action),
+                         isWarningExpired / pruneWarnings (/warn expire)
     media.ts           ← thumbnails (sharp), ffmpeg audio merge / frames, download folders (storage/media)
     attachments.ts     ← download media → SimpleX image/video/file messages → send; fallbacks, DASH audio, notes
 test/
@@ -196,6 +199,7 @@ test/
   moderation-tools.test.ts ← /filter, /slowmode, /seen + /afk, /remind @member
   group-admin.test.ts  ← filter edits/actions/levels, anti-spam edits, /toggle, /modlog linking, reminder dates
   guide.test.ts        ← guide/commands.md matches the command definitions
+  translate.test.ts    ← /translate (languages, MyMemory answers and errors, reply input) + /qr, /hash, /base64 from a reply
 storage/               ← SQLite DB files, rubi-state.json, rubi.lock, media/ downloads (gitignored)
 ```
 
@@ -267,6 +271,9 @@ Everything below is exported from `src/sdk.ts` and/or available on `ctx` / `rt`.
   Send the message, then call `rt.interactions.create("kind", msg, state, {ttlMs, ownerKey})`. Reactions on that message,
   and `/vote <id> <args>` taps, reach your handlers. Mutate `ix.state` and return the new text
   (or `{text, ack, reply, done}`); Rubi saves the state and edits the message. Handlers for one interaction run one at a time.
+  Add `onExpire(ix, rt)` to give the message a final text when its `ttlMs` runs out (poll → closed, games → expired), so
+  dead buttons don't linger: `rt.interactions.sweepExpired()` runs it on start (for ones that expired offline) and every
+  10 minutes, then deletes the interaction.
   **Reactions are limited to 👍 👎 😀 😂 😢 ❤ 🚀 ✅ (no ❤️ variation selector — use `normalizeReaction`), max 3 per user per message.**
 - **Prompts:** `await ctx.confirm("Kick @x?")` shows ✅ /confirm and ✖ /cancel buttons; only the invoker can answer,
   it defaults to a 60s timeout, and the question is edited with the outcome. `await ctx.awaitReply("Question?")` returns the user's next
@@ -312,7 +319,8 @@ Everything below is exported from `src/sdk.ts` and/or available on `ctx` / `rt`.
   thumbnail is downloaded and reduced with `thumbnail()`, and sent in the same image message as the complete caption
   (text fallback if unavailable). CheapShark requires its redirect URLs, not direct store links.
 - **Personal/group organization:** `/prefs` stores DM-only weather/country/currency defaults; `/todo` stores bounded
-  personal or group tasks; `/event` creates one-off visible group RSVPs with a scheduled reminder; `/cleanlink` removes
+  personal or group tasks (add/claim/done/reopen/remove/clear; `assign <id> @member` sets `assigneeKey` to the member's
+  sender key `g<groupId>:m<groupMemberId>`, creator only; `clear` removes only the sender's own completed tasks); `/event` creates one-off visible group RSVPs with a scheduled reminder; `/cleanlink` removes
   common tracking parameters without opening the URL; `/time at` converts an explicit ISO instant across IANA zones.
 - **Time:** `parseWhen("tomorrow 9:00 call mom", now, tz)` gives `{at, rest}`; it also takes dates (`dec 24 18:00`,
   `24 december`, `2026-12-24 8am`, `friday 9:00`, optional `on`; no time = 9:00; a passed yearless date = next year;
@@ -322,7 +330,10 @@ Everything below is exported from `src/sdk.ts` and/or available on `ctx` / `rt`.
   `formatDateTime(at, tz)` and `fmt.relative(at)`.
 - **Moderation:** `assertCanModerate(ctx, target, "kick")` checks not self, not the bot, and that both the invoker's and the
   bot's roles are high enough. `await moderate(() => ctx.chat.api…())` maps chat-core role errors to friendly messages.
-  `/block @x 10m` schedules an `unblock` job (cancelled by `/unblock`). `/purge N [@member]` reads recent history with
+  `/block @x 10m` schedules an `unblock` job (cancelled by `/unblock`). If unblocking fails and the member is still
+  there, the job returns a time 10 minutes later (counting `payload.tries`); after 6 tries it posts a notice in the group
+  and the moderation log. Members who left are skipped quietly. Warnings can expire (`GroupSettings.warnExpireMs`,
+  `/warn expire 30d`): `addWarning` and `/warnings` drop entries whose `last` is older (`pruneWarnings`). `/purge N [@member]` reads recent history with
   `ctx.chat.apiGetChat(T.ChatType.Group, id, count)` (typed `any` by the library; cast to `T.AChat`) and only deletes
   messages whose author ranks below both the invoker and Rubi, since chat core rejects the whole batch otherwise.
 - **Automod:** `/filter` (admins) keeps `GroupSettings.filter` (lowercase entries, comma-separated input, `*` wildcard;
@@ -340,6 +351,27 @@ Everything below is exported from `src/sdk.ts` and/or available on `ctx` / `rt`.
   `forgetChat` deletes these records for a group, or for one member.
 - **Reminders for others:** `/remind @member …` (groups) stores the target as `name`/`memberId` and the creator as
   `by`/`byMemberId`; the creator owns it (`userKey`). `forgetChat(rt, ref, id)` cancels reminders for *or* by that member.
+- **Snooze:** when a one-off reminder fires, the job saves a `SnoozeRecord` (payload + the fired message's `itemId`) in
+  the `snooze` store collection for a day and adds 💤 buttons (`/'snooze <id> 10m'`, using the payload's `tappable` /
+  `prefix`; reminders created before 0.15 have none). `/snooze [id] <when>` (hidden) also finds the record by the
+  replied-to message; the owner or the target may snooze. It schedules a new `reminder` quoting the fired message.
+- **Polls:** `/poll [multi] [duration] Q | a | b`. `multi` keeps votes in `PollState.picks` (userKey → indexes; reactions
+  and buttons toggle); single-choice polls keep `votes`. A duration (1m–30d) sets `closesAt` and schedules a `poll-close`
+  job (cancelled by `/endpoll`); the interaction's TTL is the duration + 10 minutes.
+- **Reports:** `/report [reason]` as a reply sends the quoted text to the moderation log (fails if nobody subscribed),
+  deletes the `/report` message when Rubi is a moderator and confirms by DM (`memberContactId`). Only successful reports
+  count against the once-a-minute limit (a limiter throttle, not the command cooldown).
+- **Goodbye:** `GroupSettings.goodbye` (`/welcome goodbye <text|off>`), sent on `leftMember` only (not removals), with
+  `{name}` bold (`renderGoodbye`), throttled to one per group per 10s.
+- **Reply input:** `ctx.quotedText` is the trimmed text of the message being replied to. `/qr`, `/hash`, `/base64`,
+  `/define`, `/translate`, `/cleanlink`, `/reddit` and `/x` use it when their text argument is left out.
+- **Translate:** `/translate [from>]to text` calls MyMemory (`api.mymemory.translated.net/get`, `langpair=Autodetect|de`
+  or `fr|en`, 500 characters max per request; checked against the live API in Nov 2026: `Autodetect` works and returns `detectedLanguage`). `RUBI_TRANSLATE_EMAIL` (optional, sent as `de=`) raises its anonymous daily
+  quota. `quotaFinished` / a "MYMEMORY WARNING" text and non-200 `responseStatus` become friendly errors.
+- **Stats:** `rt.stats` is loaded from the store at boot (`loadStats`) and saved after every counted command
+  (`recordStats`), so `/stats` and `/about` count since `stats.since`, not since the last restart.
+- **In-memory caches:** cap them with `capSize(map, max)` (oldest entries go first; re-insert to refresh), never
+  `clear()`. `HttpError` failures reset the command's cooldown like usage errors do (the flood limit still applies).
 - **Moderation log:** `void modLog(rt, g, "…")` (never throws) DMs a line to every `GroupSettings.modlog` subscriber
   who is *currently* an admin (checked with apiListMembers each time; members gone from the list are pruned). Every
   moderation command, automod/anti-spam action and settings change calls it. Anything sensitive (deleted text, banned

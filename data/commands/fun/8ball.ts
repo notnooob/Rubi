@@ -12,7 +12,7 @@ const ANSWERS = [
 export default defineCommand({
   name: "8ball",
   aliases: ["eightball", "ask"],
-  description: "Ask the magic 8-ball a yes/no question",
+  description: "Ask the magic 8-ball",
   category: "Fun",
   args: [{name: "question", type: "text", description: "Your yes/no question", required: true}],
   examples: ["8ball Will it rain tomorrow?"],
